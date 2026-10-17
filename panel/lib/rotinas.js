@@ -162,6 +162,10 @@ function emPortugues(spec) {
   g = s.match(/^\*-\*-(\d{2}) (\d{2}):(\d{2})(?::\d{2})?$/);
   if (g) return `todo dia ${Number(g[1])} do mês, às ${g[2]}:${g[3]}`;
 
+  // uma vez so (lembrete): 2026-10-17 14:32:00
+  g = s.match(/^\d{4}-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::\d{2})?$/);
+  if (g) return `uma vez, em ${g[2]}/${g[1]} às ${g[3]}:${g[4]}`;
+
   // atalhos do systemd
   if (s === 'daily') return 'todo dia à meia-noite';
   if (s === 'hourly') return 'de hora em hora';
