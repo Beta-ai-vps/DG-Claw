@@ -49,7 +49,7 @@ async function executar(acao, id, op = {}) {
     const agente = web.registro.obter(p.slug);
     if (!agente || agente.tipo === 'admin') throw new Error('Seu agente ainda não foi criado. O Admin precisa criar ele primeiro.');
     mudar('testando', 'Conferindo se o seu agente consegue responder.');
-    const TEXTO_OI = 'Oi! Sou ' + p.dono + '. Acabei de te criar. Me cumprimente pelo nome, se apresente brevemente e me ofereça estas opções, numeradas e nesta ordem: 1. Conectar o Grok, para conversarmos por áudio. 2. Conectar o Gmail. 3. Mão na massa: começar logo uma tarefa. 4. Conectar a API do Gemini no modo gratuito, para você me ajudar com análise de vídeo. Canais e conexões que ainda não configuramos não são falha: não fale de erro deles.';
+    const TEXTO_OI = 'Oi! Sou ' + p.dono + '. Acabei de te criar. Me cumprimente pelo nome, se apresente brevemente e me ofereça estas opções, numeradas e nesta ordem: 1. Conectar a Groq, para conversarmos por áudio. 2. Conectar o Gmail. 3. Mão na massa: começar logo uma tarefa. 4. Conectar a API do Gemini no modo gratuito, para você me ajudar com análise de vídeo. Canais e conexões que ainda não configuramos não são falha: não fale de erro deles.';
     // Envia o oi e espera a resposta. A resposta só conta se for nova em relação ao que existia antes deste envio.
     const tentar = async () => {
       const antes = new Set((await web.conversa.thread(agente)).msgs.map(m => m.id));
