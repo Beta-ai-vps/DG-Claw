@@ -260,7 +260,7 @@ function criarCofreRotas({ config, runner, cofre, voz, log }) {
       req.resume();
       return enviaJson(res, 503, {
         error: 'O microfone do painel está desligado: a transcrição usa a chave de voz da plataforma e ela ainda não foi configurada.',
-        howToFix: 'Peça ao Admin: "ativa o microfone". Ele copia a OPENAI_API_KEY ou a ELEVENLABS_API_KEY do cofre para a configuração da plataforma.',
+        howToFix: 'Peça ao Admin: "ativa o microfone". Ele copia a GROQ_API_KEY (grátis), a OPENAI_API_KEY ou a ELEVENLABS_API_KEY do cofre para a configuração da plataforma.',
       });
     }
     let buf;

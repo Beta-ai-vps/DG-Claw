@@ -79,7 +79,7 @@ chega ao terminal do Admin tal como foi escrito.
 ## Microfone do chat e do painel
 
 O microfone (no chat e na aba Conversa do painel de cada agente) é transcrito pelo DG Claw Web com a
-chave de voz da plataforma: `OPENAI_API_KEY` ou `ELEVENLABS_API_KEY` em `/etc/dgclaw/web.env`. Quando o
+chave de voz da plataforma: `GROQ_API_KEY` (grátis, console.groq.com), `OPENAI_API_KEY` ou `ELEVENLABS_API_KEY` em `/etc/dgclaw/web.env`. Quando o
 dono pedir para ativar o microfone, peça que ele guarde a chave no Cofre de um agente (aba Cofre do
 painel) e copie de `/var/lib/dgclaw/agentes/<slug>/cofre/cofre.env` para o `web.env` sem que o valor
 apareça em mensagem, comando ou log (ler e gravar dentro do mesmo script, permissão 600). Depois

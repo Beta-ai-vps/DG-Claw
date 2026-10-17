@@ -200,6 +200,7 @@ const PROVEDORES = [
   { id: 'openai', nome: 'OpenAI', sugestao: 'OPENAI_API_KEY', onde: 'https://platform.openai.com/api-keys' },
   { id: 'anthropic', nome: 'Anthropic (Claude)', sugestao: 'ANTHROPIC_API_KEY', onde: 'https://console.anthropic.com/settings/keys' },
   { id: 'google', nome: 'Google (Gemini)', sugestao: 'GEMINI_API_KEY', onde: 'https://aistudio.google.com/apikey' },
+  { id: 'groq', nome: 'Groq (grátis, transcrição de áudio)', sugestao: 'GROQ_API_KEY', onde: 'https://console.groq.com/keys' },
   { id: 'elevenlabs', nome: 'ElevenLabs', sugestao: 'ELEVENLABS_API_KEY', onde: 'https://elevenlabs.io/app/settings/api-keys' },
   { id: 'xai', nome: 'xAI (Grok)', sugestao: 'XAI_API_KEY', onde: 'https://console.x.ai' },
   // Não é chave de API: é a assinatura do Claude. `onde` é nulo porque o token não

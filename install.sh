@@ -802,7 +802,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/dgclaw/app
 TimeoutStartSec=3600
-ExecStart=/bin/bash -c 'exec podman build --http-proxy=false --ignorefile /opt/dgclaw/app/container/ignore --build-arg COM_NAVEGADOR=0 -t localhost/dgclaw-agente:$VERSAO -t localhost/dgclaw-agente:latest -f /opt/dgclaw/app/container/Containerfile /opt/dgclaw/app >>/var/log/dgclaw/imagem.log 2>&1'
+ExecStart=/bin/bash -c 'exec podman build --http-proxy=false --ignorefile /opt/dgclaw/app/container/ignore --build-arg COM_NAVEGADOR=1 -t localhost/dgclaw-agente:$VERSAO -t localhost/dgclaw-agente:latest -f /opt/dgclaw/app/container/Containerfile /opt/dgclaw/app >>/var/log/dgclaw/imagem.log 2>&1'
 FIM
     executar systemctl daemon-reload
     if [ "$SEM_IMAGEM" = 1 ]; then
