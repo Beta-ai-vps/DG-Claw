@@ -161,6 +161,14 @@ mais tarde, sem esta conversa na cabeca.
 Detalhe de audio: a transcricao troca **cron** por **Chrome** (tambem crome, crono, crom).
 Perto de um horario, e sempre agendamento.
 
+## Lembretes para o {{DONO}}
+
+Quando o {{DONO}} pedir pra ser lembrado ou avisado de algo ("me lembra", "me avisa as 15h"), use a skill
+**`/dgclaw:lembretes`**: o DG Claw avisa na tela e no celular e insiste ate ele confirmar. Rotina (skill
+agenda) e quando VOCE faz um trabalho num horario. Detalhes: `dgclaw-api GET /api/v1/lembretes/docs.md`.
+O recado `[LEMBRETE] envio N de M` e do sistema, nao do {{DONO}}: avise-o pelo canal conectado (Telegram,
+WhatsApp), nao repita sozinho e, se ele disser "feito" ou "adia", chame a rota que o recado indica.
+
 ## Mesa de tarefas
 
 A mesa (`/mesa` no painel) e onde o {{DONO}} ve o que voce esta fazendo. Use `dgclaw-mesa`.

@@ -31,6 +31,7 @@ const { criarLogin } = require('./lib/login');
 const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
 const { criarCaixaAgente, quemChamou } = require('./lib/caixa-agente');
 const { criarPush } = require('./lib/push');
+const { criarLembretes } = require('./lib/lembretes');
 const { criarMesa } = require('./lib/mesa');
 const { criarAvisos } = require('./lib/avisos');
 
@@ -90,6 +91,8 @@ function criarServidor(opcoes) {
   const caixa = criarCaixaAgente({ config, registro, log, porta: () => servidor.address().port, agora: opcoes.agora });
   const push = criarPush({ dataDir: config.dataDir, log, agora: opcoes.agora, enviarHttp: opcoes.enviarPush });
   try { push.garantirChaves(); } catch (e) { log('erro', e.message); }
+  const lembretes = criarLembretes({ config, registro, runner, push, log, agora: opcoes.agora });
+  caixa.permitir('/api/v1/lembretes');
   // Modo foco: o agente chega pela caixa (dgclaw-api), o retrato vai para a casa dele e o PUT do agente avisa o celular.
   const foco = criarFoco({ dir: path.join(config.dataDir, 'foco'), tz: config.tz, log, registro, gravaRetrato: opcoes.gravaRetrato || caixa.gravaRetrato, push: opcoes.push || push, quemChamou: opcoes.quemChamou || quemChamou });
   caixa.permitir('/api/v1/foco');
@@ -276,6 +279,8 @@ function criarServidor(opcoes) {
     if (p.startsWith('/api/v1/tarefas') && await mesa.rota(req, res, url, sessao)) return undefined;
 
     if (await foco.tratarRota(req, res, url, sessao)) return undefined;
+
+    if ((p === '/api/v1/lembretes' || p.startsWith('/api/v1/lembretes/')) && await lembretes.rotas(req, res, url, sessao)) return undefined;
 
     if (p === '/api/v1/onboarding') {
       if (falhaDoRegistro(req, res, true)) return;
@@ -704,6 +709,15 @@ function criarServidor(opcoes) {
       return res.end();
     }
 
+    if (p === '/lembretes' && (m === 'GET' || m === 'HEAD')) {
+      if (!sessao) return semSessaoPagina(req, res, url);
+      if (!servirArquivo(req, res, path.join(config.publicDir, 'lembretes.html'), 'no-store')) {
+        log('erro', `A tela de lembretes não está instalada: falta ${path.join(config.publicDir, 'lembretes.html')}.`);
+        H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela de lembretes não foi encontrado no servidor. Reinstale o DG Claw Web.');
+      }
+      return undefined;
+    }
+
     if ((p === '/avisos' || p === '/avisos/') && (m === 'GET' || m === 'HEAD')) {
       if (!sessao) return semSessaoPagina(req, res, url);
       if (!servirArquivo(req, res, path.join(config.publicDir, 'avisos.html'), 'no-store')) {
@@ -779,19 +793,20 @@ function criarServidor(opcoes) {
   });
 
   return {
-    servidor, config, registro, auth, midia, conversa, log, caixa, push, avisos,
+    servidor, config, registro, auth, midia, conversa, log, caixa, push, lembretes, avisos,
     ouvir(porta, host) {
       return new Promise((resolve, reject) => {
         servidor.once('error', reject);
         servidor.listen(porta == null ? config.porta : porta, host || config.host, () => {
           servidor.off('error', reject);
           caixa.iniciar();
+          lembretes.iniciar();
           avisos.iniciar();
           resolve(servidor.address());
         });
       });
     },
-    fechar() { return new Promise((resolve) => { caixa.parar(); avisos.parar(); proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
+    fechar() { return new Promise((resolve) => { caixa.parar(); lembretes.parar(); avisos.parar(); proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
   };
 }
 
