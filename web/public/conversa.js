@@ -2653,6 +2653,19 @@ document.addEventListener('keydown', ev => {
 /* Foto, seletor de agentes, páginas do painel e Configurações: tudo no menu-lado.js.
    A lista já veio do boot, então não é buscada de novo. */
 window.DGMenuLado.inicia({ agente: AGENTE, agentes: agentesMenu, fecha: () => abreMenu(false) });
+// ?texto=... chega do painel (ex.: "editar" numa rotina): o pedido já vem escrito no campo, sem
+// enviar sozinho, e o parâmetro sai da barra para não reaparecer ao recarregar.
+try {
+  const u = new URL(location.href);
+  const pronto = u.searchParams.get('texto');
+  if (pronto) {
+    entrada.value = pronto.slice(0, 2000);
+    entrada.dispatchEvent(new Event('input'));
+    entrada.focus();
+    u.searchParams.delete('texto');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  }
+} catch (e) { console.warn('[conversa] não consegui preencher o texto vindo do link:', e.message); }
 
 /* O Safari só deixa tocar som num <audio> que já tocou dentro de um gesto do
    dedo. Então no PRIMEIRO toque da tela eu toco um mp3 em silêncio nesse mesmo

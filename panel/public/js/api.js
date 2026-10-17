@@ -150,7 +150,8 @@ const API = {
   rotinas: () => API.get('/api/rotinas'),
   // ── reorganização do painel (frente B, 01/10/2026): contrato {ok,status,corpo} ──
   operacoes: (atualizar) => API.pedir(`/api/operacoes${atualizar ? '?atualizar=1' : ''}`),
-  rotinasUsuario: () => API.pedir('/api/rotinas/usuario'),
+  // atualizar=1 pula o cache de 45 s do retrato (o servidor nunca deixa abaixo de 5 s).
+  rotinasUsuario: (atualizar) => API.pedir('/api/rotinas/usuario' + (atualizar ? '?atualizar=1' : '')),
   cerebro: () => API.pedir('/api/cerebro'),
   memoriaArquivo: (path) => API.pedir(`/api/memoria/arquivo?path=${encodeURIComponent(path)}`),
   memoriaSalvar: (path, conteudo, versaoLida) => API.put('/api/memoria/arquivo', { path, conteudo, versaoLida }),

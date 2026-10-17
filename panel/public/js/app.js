@@ -1359,6 +1359,14 @@ const RESULTADO_ROTINA = {
  * (os timers dgclaw-<slug>-self-*). Vazio é um CONVITE, não um "nada aqui": diz
  * como criar a primeira.
  */
+// Editar uma rotina = pedir ao agente: ele mexe no agendador de verdade, e a tela não guarda
+// cópia nenhuma que possa discordar do systemd. O link abre a conversa com o pedido pronto.
+function linkEditarRotina(x) {
+  const texto = `Quero mudar a rotina "${x.nome}" (${x.quando || 'sem horário'}): `;
+  return `<div class="rotina-acoes"><a class="btn-editar-rotina" href="${URL_CONVERSA}?texto=${encodeURIComponent(texto)}"
+    style="display:inline-flex;align-items:center;min-height:36px;padding:0 14px;margin-top:8px;border-radius:9px;border:1px solid var(--borda, #ddd);text-decoration:none;font-weight:600">editar</a></div>`;
+}
+
 function renderSuasRotinas(r, elId = 'home-rotinas', comDica = false) {
   const el = document.getElementById(elId);
   if (!el) return;
@@ -1390,6 +1398,7 @@ function renderSuasRotinas(r, elId = 'home-rotinas', comDica = false) {
       ${x.recado ? `<div class="rotina-recado" title="O recado que ele recebe quando a rotina dispara.">“${ricoLinhaCurta(x.recado, 180)}”</div>`
                  : (x.descricao ? `<div class="rotina-desc">${ricoLinhaCurta(x.descricao, 140)}</div>` : '')}
       <div class="rotina-pe">${resultado} · ${escapeHtml(ultima)} · ${escapeHtml(proxima)}</div>
+      ${comDica && NA_PLATAFORMA ? linkEditarRotina(x) : ''}
     </div>`;
   }).join('');
   for (const i of inconsistencias) {
@@ -1399,7 +1408,9 @@ function renderSuasRotinas(r, elId = 'home-rotinas', comDica = false) {
   }
   // Na aba Rotinas ninguém edita aqui: mudar ou apagar é pedir ao agente, que mexe no agendador de verdade.
   if (comDica && rotinas.length) {
-    html += '<div class="vazio-util" style="margin-top:6px">Para mudar ou apagar uma rotina, peça ao agente na conversa.</div>';
+    html += NA_PLATAFORMA
+      ? '<div class="vazio-util" style="margin-top:6px">"Editar" abre a conversa com o pedido já escrito: você completa o que quer mudar e ele ajusta a rotina de verdade.</div>'
+      : '<div class="vazio-util" style="margin-top:6px">Para mudar ou apagar uma rotina, peça ao agente na conversa.</div>';
   }
   el.innerHTML = html;
 }
@@ -1407,7 +1418,7 @@ function renderSuasRotinas(r, elId = 'home-rotinas', comDica = false) {
 // Aba Rotinas: reaproveita o desenho do Status e recarrega a cada 15 s enquanto está aberta e visível,
 // para o que o agente acabou de criar aparecer quase na hora.
 async function carregarRotinas() {
-  renderSuasRotinas(await API.rotinasUsuario(), 'rotinas-lista', true);
+  renderSuasRotinas(await API.rotinasUsuario(true), 'rotinas-lista', true);
 }
 setInterval(() => {
   if (currentTab === 'rotinas' && !document.hidden) carregarRotinas();
