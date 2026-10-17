@@ -29,6 +29,8 @@ const { criarSigilo } = require('./lib/sigilo');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
 const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
+const { criarCaixaAgente, quemChamou } = require('./lib/caixa-agente');
+const { criarPush } = require('./lib/push');
 
 const METODOS_QUE_ESCREVEM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const TIPOS_ESTATICOS = {
@@ -73,8 +75,6 @@ function criarServidor(opcoes) {
   const leitor = criarLeitor({ log, tz: config.tz, canalTelegram: config.canalTelegram, midia });
   const leitorRollout = criarLeitorRollout({ log, tz: config.tz, midia });
   const alertas = agente => criarAlertas(path.join(config.dataDir, 'alertas', agente.slug + '.json'), agente.chat_id);
-  // Integração com a caixa do agente (retrato) e com o push entra ao juntar com feat/lembretes.
-  const foco = criarFoco({ dir: path.join(config.dataDir, 'foco'), tz: config.tz, log, registro, gravaRetrato: opcoes.gravaRetrato || null, push: opcoes.push || null, quemChamou: opcoes.quemChamou || null });
   const comandos = criarComandos({ runner, log, agora: opcoes.agora });
   const conversa = criarConversa({ comandos, alertas, config, runner, leitor, leitorRollout, midia, log, agora: opcoes.agora, gravaToken: opcoes.gravaToken });
   const compartilhados = criarCompartilhados(conversa);
@@ -85,6 +85,12 @@ function criarServidor(opcoes) {
   const sigilo = opcoes.sigilo || criarSigilo({ env: config.env, registro, dataDir: config.dataDir, log, timeoutMs: opcoes.timeoutSigiloMs });
   const cofreRotas = criarCofreRotas({ config, runner, cofre: cofreAgente, voz, log });
   const proxy = criarProxy({ config, registro, log, cofreRotas });
+  const caixa = criarCaixaAgente({ config, registro, log, porta: () => servidor.address().port, agora: opcoes.agora });
+  const push = criarPush({ dataDir: config.dataDir, log, agora: opcoes.agora, enviarHttp: opcoes.enviarPush });
+  try { push.garantirChaves(); } catch (e) { log('erro', e.message); }
+  // Modo foco: o agente chega pela caixa (dgclaw-api), o retrato vai para a casa dele e o PUT do agente avisa o celular.
+  const foco = criarFoco({ dir: path.join(config.dataDir, 'foco'), tz: config.tz, log, registro, gravaRetrato: opcoes.gravaRetrato || caixa.gravaRetrato, push: opcoes.push || push, quemChamou: opcoes.quemChamou || quemChamou });
+  caixa.permitir('/api/v1/foco');
 
   let versaoJsCache = { ts: 0, valor: '0' };
   /** Versão da tela: mtime de conversa.js. A tela compara com a que carregou e se recarrega sozinha. */
@@ -363,6 +369,18 @@ function criarServidor(opcoes) {
       return H.enviaJson(res, r.status, r.corpo);
     }
 
+    if (p === '/api/v1/caixa/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, '..', 'docs', 'CAIXA-DO-AGENTE.md'), 'utf8'));
+    }
+    if (p === '/api/v1/push/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'AVISOS-NO-APARELHO.md'), 'utf8'));
+    }
+    if (p === '/api/v1/push' || p.startsWith('/api/v1/push/')) {
+      if (await push.rotas(req, res, url, sessao)) return undefined;
+    }
+
     if (p === '/api/v1/comandos/docs.md' && m === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'COMANDOS-DE-BARRA.md'), 'utf8'));
@@ -612,8 +630,14 @@ function criarServidor(opcoes) {
       res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     }
 
-    // CSRF: toda escrita exige Origin igual à do próprio Web.
-    if (ehMutacao(req) && !origemOk(req)) {
+    // Pedido interno da caixa de um agente: só rotas /api/ liberadas com caixa.permitir().
+    const slugCaixa = caixa.ehPedidoDaCaixa(req);
+    if (slugCaixa && !(p.startsWith('/api/') && caixa.rotaPermitida(p))) {
+      return H.erroJson(res, 403, `A rota ${p.slice(0, 120)} não está liberada para agentes. Só as rotas que a frente liberou com caixa.permitir() respondem pela caixa.`);
+    }
+
+    // CSRF: toda escrita exige Origin igual à do próprio Web (a caixa não vem de navegador).
+    if (ehMutacao(req) && !slugCaixa && !origemOk(req)) {
       const visto = req.headers.origin ? String(req.headers.origin).slice(0, 80) : '(sem Origin)';
       log('aviso', `Pedido ${m} ${p} recusado: Origin ${visto} não é a deste Web (${H.origemPropria(req, config.proxiesConfiaveis)}).`);
       const motivo = `Pedido recusado: a origem ${visto} não é a deste site. Abra o DG Claw pelo endereço normal e tente de novo.`;
@@ -645,7 +669,7 @@ function criarServidor(opcoes) {
       return res.end();
     }
 
-    const sessao = auth.sessaoDoPedido(req);
+    const sessao = slugCaixa ? { usuario: 'agente:' + slugCaixa, via: 'caixa', agente: slugCaixa } : auth.sessaoDoPedido(req);
 
     if (p.startsWith('/api/')) {
       if (!sessao) return H.erroJson(res, 401, 'Você precisa entrar para usar a API. Faça login em /login.');
@@ -726,17 +750,18 @@ function criarServidor(opcoes) {
   });
 
   return {
-    servidor, config, registro, auth, midia, conversa, log,
+    servidor, config, registro, auth, midia, conversa, log, caixa, push,
     ouvir(porta, host) {
       return new Promise((resolve, reject) => {
         servidor.once('error', reject);
         servidor.listen(porta == null ? config.porta : porta, host || config.host, () => {
           servidor.off('error', reject);
+          caixa.iniciar();
           resolve(servidor.address());
         });
       });
     },
-    fechar() { return new Promise((resolve) => { proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
+    fechar() { return new Promise((resolve) => { caixa.parar(); proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
   };
 }
 
