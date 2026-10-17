@@ -102,7 +102,10 @@ test('a lista tem os 7 tipos e a página carrega o que precisa', () => {
   assert.match(h, /id="avisosRaiz"/);
   assert.ok(h.indexOf('/tour.js') < h.indexOf('/avisos.js'));
   assert.match(h, /avisos\.css/);
-  assert.match(pub('menu-lado.js'), /href="\/avisos"/);
+  // Sem item próprio no menu: o quadro abre pela aba Avisos da Mesa de tarefas.
+  const mesa = pub('mesa.html');
+  assert.match(mesa, /^<link rel="stylesheet" href="\/avisos\.css">$/m);
+  assert.ok(mesa.indexOf('<script src="/mesa.js">') < mesa.indexOf('<script src="/avisos.js">'));
 });
 
 test('nenhum travessão nos arquivos da tela', () => {

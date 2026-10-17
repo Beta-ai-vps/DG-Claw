@@ -106,12 +106,12 @@ test('histórico aceita formatos diferentes e escapa', () => {
   assert.doesNotMatch(h, /<x>/);
 });
 
-test('mesa.html: ordem dos scripts, link de volta e linhas comentadas do Quadro de avisos', () => {
+test('mesa.html: ordem dos scripts, link de volta e o Quadro de avisos ligado', () => {
   const h = pub('mesa.html');
   assert.ok(h.indexOf('<script src="/tour.js">') < h.indexOf('<script src="/mesa.js">'));
   assert.match(h, /<a class="mz-volta" href="\/"[^>]*>← Conversas<\/a>/);
-  assert.match(h, /<!-- <link rel="stylesheet" href="\/avisos\.css"> -->/);
-  assert.match(h, /<!-- <script src="\/avisos\.js"><\/script> -->/);
+  assert.match(h, /^<link rel="stylesheet" href="\/avisos\.css">$/m);
+  assert.match(h, /^<script src="\/avisos\.js"><\/script>$/m);
 });
 
 test('o menu da conversa tem o item Mesa de tarefas', () => {
