@@ -18,7 +18,7 @@ No terminal do Claude Code, você pode pedir:
 > Baixa, analisa e instala o DG Claw: https://github.com/DGatoM/DG-Claw
 
 Com o projeto já aberto, o pedido pode ser apenas **“instala”**. Este documento contém o procedimento
-completo. O Claude roda `sudo ./install.sh --usuario <nome>` sem senha nenhuma, e a pessoa cadastra a
+completo. O Claude roda `sudo ./install.sh --usuario <nome> --com-imagem` sem senha nenhuma, e a pessoa cadastra a
 senha no navegador. O Claude não pede a senha no chat nem a passa por stdin.
 
 ## Etapas da instalação
@@ -31,7 +31,7 @@ o andamento em português, com explicações e mensagens de conclusão.
 2. **Baixar o programa.** Na primeira instalação: `git clone https://github.com/DGatoM/DG-Claw`
    e `cd DG-Claw`. Quem recebeu o pacote compactado pode abrir a pasta extraída.
 3. **Definir o acesso.** Escolha um usuário para o painel. O comando é
-   `sudo ./install.sh --usuario <seu-usuario>`, sem senha. O instalador gera um link de primeiro
+   `sudo ./install.sh --usuario <seu-usuario> --com-imagem`, sem senha. O instalador gera um link de primeiro
    acesso, de uso único e válido por 30 minutos, onde você cadastra a senha no navegador (pelo menos
    12 caracteres, separada da conta Claude). Quem prefere definir a senha no terminal pode digitá-la
    quando o instalador perguntar (só aparece se o terminal for interativo; Enter pula). Para
@@ -41,7 +41,7 @@ o andamento em português, com explicações e mensagens de conclusão.
 4. **Instalar as bibliotecas.** Node.js executa o painel; npm instala e compila o programa do Admin;
    Caddy fornece o endereço seguro. Podman prepara a separação dos futuros agentes e ufw protege
    as portas do servidor. A instalação aproveita os componentes que já estão disponíveis.
-   Áudio, navegador e construção da imagem dos agentes ficam para depois.
+   Áudio e navegador ficam para depois. A imagem dos agentes começa a ser construída em segundo plano (`--com-imagem`).
 5. **Configurar o endereço e a proteção.** O nome da VPS na Hostinger é usado quando aponta para
    ela. Caso contrário, o instalador tenta um endereço sslip.io baseado no IP. Um domínio próprio
    pode ser informado com `--dominio painel.exemplo.com`, já apontando para o servidor.
@@ -54,8 +54,10 @@ o andamento em português, com explicações e mensagens de conclusão.
    O primeiro agente terá um teste próprio: a apresentação só termina quando ele responder.
 
 A duração depende da rede e dos pacotes já instalados. `--ensaio` mostra as mudanças previstas sem
-aplicá-las. `--com-imagem` adianta a construção da imagem dos futuros agentes em segundo plano;
-é opcional. Sem essa opção, o Admin faz essa preparação quando você cria o primeiro agente.
+aplicá-las. O comando padrão leva `--com-imagem`, que começa a construir a imagem dos futuros agentes em segundo
+plano enquanto você cadastra a senha e conhece o painel (leva de 10 a 20 minutos na primeira vez).
+Acompanhe com `dgclaw imagem status`. Sem essa opção, o Admin faz essa preparação quando você cria o
+primeiro agente, e a espera acontece nessa hora.
 
 ## Abrir o painel
 

@@ -12,7 +12,7 @@ rodar:
 ```sh
 git clone https://github.com/DGatoM/DG-Claw
 cd DG-Claw
-sudo ./install.sh --usuario admin
+sudo ./install.sh --usuario admin --com-imagem
 ```
 
 O instalador não pede senha. Espere o final: ele mostra o **link do painel**, o **usuário**, um
@@ -23,7 +23,7 @@ você cadastra a sua senha (pelo menos 12 caracteres) e já entra no chat do **A
 para entrar no DG Claw, não é a senha da sua conta Claude. Se o link expirar, gere outro com
 `sudo dgclaw primeiro-acesso`.
 
-Se estiver instalando pelo Claude Code ou pelo Codex, ele roda `sudo ./install.sh --usuario admin`
+Se estiver instalando pelo Claude Code ou pelo Codex, ele roda `sudo ./install.sh --usuario admin --com-imagem`
 sem senha nenhuma e mostra os dois links no fim. Ele não pergunta a senha no chat.
 
 Já no card **Admin**:
