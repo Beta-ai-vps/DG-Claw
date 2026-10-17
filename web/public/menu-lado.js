@@ -24,6 +24,9 @@
   ];
 
 
+  /* Entrada fixa do menu: a tela de lembretes (vale para qualquer agente). */
+  const LINK_LEMBRETES = { nome: 'Lembretes', ico: '⏰', href: '/lembretes' };
+
   /* A foto vem SEMPRE do próprio agente do item. Sem foto, círculo com a cor dele e a letra. */
   function fotoDe(a) {
     const img = a.avatar_img || (/^https:\/\//i.test(a.avatar || '') ? a.avatar : '');
@@ -58,7 +61,7 @@
     return { tipo: 'sem', texto: 'Este navegador não oferece a instalação por aqui. No Chrome ou no Edge, abra o menu do navegador e procure Instalar app. No Firefox para computador, o recurso não existe.' };
   }
 
-  if (!raiz.document) return { ABAS_PAINEL, itemAgente, linksPainel, instrucaoInstalar };
+  if (!raiz.document) return { ABAS_PAINEL, LINK_LEMBRETES, itemAgente, linksPainel, instrucaoInstalar };
 
   /* ── Parte com DOM ─────────────────────────────────────────────────────── */
   const $ = id => document.getElementById(id);
@@ -161,6 +164,8 @@
     painel.innerHTML = links.map(l => `<a class="ml-tab" href="${esc(l.href)}">` +
       `<span class="ml-ico" aria-hidden="true">${l.ico}</span>${esc(l.nome)}</a>`).join('');
     painel.hidden = !links.length;
+    $('mlTabs').insertAdjacentHTML('beforeend', `<div data-tour="gm-lembretes"><a class="ml-tab" href="${LINK_LEMBRETES.href}">` +
+      `<span class="ml-ico" aria-hidden="true">${LINK_LEMBRETES.ico}</span>${LINK_LEMBRETES.nome}</a></div>`);
 
     $('gmIrConversa').onclick = () => opcoes.fecha();
     $('mlInstalar').onclick = aoInstalar;
@@ -169,5 +174,5 @@
     pintaInstalar();
   }
 
-  return { ABAS_PAINEL, itemAgente, linksPainel, instrucaoInstalar, inicia };
+  return { ABAS_PAINEL, LINK_LEMBRETES, itemAgente, linksPainel, instrucaoInstalar, inicia };
 });
