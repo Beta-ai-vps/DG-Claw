@@ -94,6 +94,7 @@ API (todas com sessão; erros sempre `{ok:false, erro:"motivo em português"}`):
 | `GET /api/v1/tts/cota` | Uso da cota de voz. |
 | `POST /api/v1/sigilo` | `{textos:[...]}` (até 600). Aponta os trechos sensíveis de cada texto para o modo escondido: `{trechos, avisos, analisados, modelo, so_regex}`. `GET /api/v1/sigilo/estado` diz o modelo ativo; docs em `GET /api/v1/sigilo/docs.md`. Ver `docs/MODO-ESCONDIDO.md`. |
 | `GET /api/v1/eu` | `{ok, usuario}`. |
+| `GET`/`PUT`/`DELETE /api/v1/foco/:agente`, `POST .../itens`, `PATCH`/`DELETE .../itens/:id`, `GET .../eventos?desde_id`, `GET /api/v1/foco/docs.md` | Modo foco: lista curta por agente que o agente monta e o dono tica na tela; evento `foco` no stream. Docs em `docs/MODO-FOCO.md`. |
 | `GET`/`POST`/`PATCH`/`DELETE /api/v1/tarefas[/:id]` | Mesa de tarefas dos agentes (criar, atualizar, concluir, cancelar). Contrato completo em `docs/MESA.md` (também em `GET /api/v1/tarefas/docs.md`). |
 | `ANY /p/<slug>/*` | Proxy do painel do agente. |
 

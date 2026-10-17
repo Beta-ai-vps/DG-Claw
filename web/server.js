@@ -23,12 +23,13 @@ const { criarProxy } = require('./lib/proxy');
 const { criarCofreAgente } = require('./lib/cofre-agente');
 const { criarCofreRotas } = require('./lib/cofre-rotas');
 const { criarAlertas } = require('./lib/alertas');
+const { criarFoco } = require('./lib/foco');
 const { criarVoz } = require('./lib/voz');
 const { criarSigilo } = require('./lib/sigilo');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
 const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
-const { criarCaixaAgente } = require('./lib/caixa-agente');
+const { criarCaixaAgente, quemChamou } = require('./lib/caixa-agente');
 const { criarPush } = require('./lib/push');
 const { criarMesa } = require('./lib/mesa');
 
@@ -88,6 +89,9 @@ function criarServidor(opcoes) {
   const caixa = criarCaixaAgente({ config, registro, log, porta: () => servidor.address().port, agora: opcoes.agora });
   const push = criarPush({ dataDir: config.dataDir, log, agora: opcoes.agora, enviarHttp: opcoes.enviarPush });
   try { push.garantirChaves(); } catch (e) { log('erro', e.message); }
+  // Modo foco: o agente chega pela caixa (dgclaw-api), o retrato vai para a casa dele e o PUT do agente avisa o celular.
+  const foco = criarFoco({ dir: path.join(config.dataDir, 'foco'), tz: config.tz, log, registro, gravaRetrato: opcoes.gravaRetrato || caixa.gravaRetrato, push: opcoes.push || push, quemChamou: opcoes.quemChamou || quemChamou });
+  caixa.permitir('/api/v1/foco');
   const mesa = criarMesa({ arquivo: path.join(config.dataDir, 'mesa', 'tarefas.json'), registro, runner, log, agora: opcoes.agora, tz: config.tz, avisarDono: (aviso) => push.enviar(aviso) });
   // O agente fala com a Mesa pelo dgclaw-mesa, que passa pela caixa: a rota precisa estar liberada.
   caixa.permitir('/api/v1/tarefas');
@@ -267,6 +271,8 @@ function criarServidor(opcoes) {
     const p = url.pathname;
     const m = req.method;
     if (p.startsWith('/api/v1/tarefas') && await mesa.rota(req, res, url, sessao)) return undefined;
+
+    if (await foco.tratarRota(req, res, url, sessao)) return undefined;
 
     if (p === '/api/v1/onboarding') {
       if (falhaDoRegistro(req, res, true)) return;
@@ -511,7 +517,7 @@ function criarServidor(opcoes) {
     if (since == null || since <= 0) since = Date.now() / 1000 - 60;
     abrirStream({
       req, res, agente, since, log, tickMs: opcoes.tickSseMs,
-      fontes: { thread: conversa.thread, atividade: conversa.atividade, versaoJs },
+      fontes: { thread: conversa.thread, atividade: conversa.atividade, versaoJs, foco: (a) => foco.lista(a.slug) },
     });
     return undefined;
   }

@@ -193,3 +193,10 @@ planilha e documento com a biblioteca Python adequada (`openpyxl`, por exemplo);
 `pdftotext`. Para zip, use `dgclaw-abrir-zip <caminho>`: ele extrai numa pasta nova ao lado
 (`<nome>-extraido/`), recusa caminhos perigosos e zip bomba, e diz a pasta criada. Nunca
 sobrescreva nem apague o original: trabalhe sempre numa cópia ou numa pasta nova.
+
+## Modo foco
+
+O {{DONO}} tem uma lista curta do que fechar agora, ao lado da conversa com você. Você monta
+(quando ele pedir "monta meu foco", "o que eu preciso fazer agora") e ele tica na tela. Os tiques
+dele não chegam como mensagem. Antes de perguntar se ele já fez algo, leia `~/.dgclaw/retratos/foco.json`
+(ou `dgclaw-api GET "/api/v1/foco/eu/eventos?desde_id=N"`). Como montar e ticar: skill `foco`.

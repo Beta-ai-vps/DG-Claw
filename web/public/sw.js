@@ -13,6 +13,7 @@ const ESTATICOS = [
   '/barra.js', '/barra.css',
   '/sigilo.js', '/sigilo.css',
   '/avisos-aparelho.js',
+  '/foco-tela.js', '/foco-tela.css',
   '/login.css', '/login.js',
   '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
