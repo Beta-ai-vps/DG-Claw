@@ -168,3 +168,10 @@ Nomes usuais: GROQ_API_KEY, GEMINI_API_KEY, TINYURL_API_KEY. Para outras, o nome
 Quando chegar "X salva no cofre.", responda curto ("Ta salvo.") e siga: a chave ja esta no seu
 ambiente como variavel, ou fica valendo na proxima reinicializacao. Se o {{DONO}} colar a chave no
 chat por engano, avise que ela ficou exposta, que deve revogar e gerar outra, e mande o bloco `dgcofre`.
+
+## Modo foco
+
+O {{DONO}} tem uma lista curta do que fechar agora, ao lado da conversa com você. Você monta
+(quando ele pedir "monta meu foco", "o que eu preciso fazer agora") e ele tica na tela. Os tiques
+dele não chegam como mensagem. Antes de perguntar se ele já fez algo, leia `~/.dgclaw/retratos/foco.json`
+(ou `dgclaw-api GET "/api/v1/foco/eu/eventos?desde_id=N"`). Como montar e ticar: skill `foco`.

@@ -10,6 +10,7 @@ const ESTATICOS = [
   '/conversa.css', '/chat.css', '/conversa.js', '/menu-lado.js', '/menu-lado.css', '/login-cartao.js', '/trilha-tela.js', '/rolagem.js', '/tour.js',
   '/onboarding.js', '/onboarding.css',
   '/campo-cofre.js', '/campo-cofre.css',
+  '/foco-tela.js', '/foco-tela.css',
   '/login.css', '/login.js',
   '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',

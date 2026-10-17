@@ -90,6 +90,7 @@ API (todas com sessão; erros sempre `{ok:false, erro:"motivo em português"}`):
 | `POST /api/v1/tts` | `{agent_id, text}`; responde o áudio (`audio/mpeg`). `X-TTS-Cortado: 1` quando o texto foi cortado. |
 | `GET /api/v1/tts/cota` | Uso da cota de voz. |
 | `GET /api/v1/eu` | `{ok, usuario}`. |
+| `GET`/`PUT`/`DELETE /api/v1/foco/:agente`, `POST .../itens`, `PATCH`/`DELETE .../itens/:id`, `GET .../eventos?desde_id`, `GET /api/v1/foco/docs.md` | Modo foco: lista curta por agente que o agente monta e o dono tica na tela; evento `foco` no stream. Docs em `docs/MODO-FOCO.md`. |
 | `ANY /p/<slug>/*` | Proxy do painel do agente. |
 
 **Mensagem da thread:** `{id, ep, hhmm, dia, origin, text, kind, media, fmt, editada, reacoes, cita, via, quem}`. `origin` é `dono`, `agente` ou `rotina`. `media` é `{id, kind, nome, bytes, disponivel, url, thumb, path}`.

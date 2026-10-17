@@ -22,6 +22,7 @@ const { criarProxy } = require('./lib/proxy');
 const { criarCofreAgente } = require('./lib/cofre-agente');
 const { criarCofreRotas } = require('./lib/cofre-rotas');
 const { criarAlertas } = require('./lib/alertas');
+const { criarFoco } = require('./lib/foco');
 const { criarVoz } = require('./lib/voz');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
@@ -70,6 +71,8 @@ function criarServidor(opcoes) {
   const leitor = criarLeitor({ log, tz: config.tz, canalTelegram: config.canalTelegram, midia });
   const leitorRollout = criarLeitorRollout({ log, tz: config.tz, midia });
   const alertas = agente => criarAlertas(path.join(config.dataDir, 'alertas', agente.slug + '.json'), agente.chat_id);
+  // Integração com a caixa do agente (retrato) e com o push entra ao juntar com feat/lembretes.
+  const foco = criarFoco({ dir: path.join(config.dataDir, 'foco'), tz: config.tz, log, registro, gravaRetrato: opcoes.gravaRetrato || null, push: opcoes.push || null, quemChamou: opcoes.quemChamou || null });
   const conversa = criarConversa({ alertas, config, runner, leitor, leitorRollout, midia, log, agora: opcoes.agora, gravaToken: opcoes.gravaToken });
   const compartilhados = criarCompartilhados(conversa);
   const onboarding = criarOnboarding({ config, registro, conversa, midia, log, imagem: opcoes.imagem });
@@ -253,6 +256,8 @@ function criarServidor(opcoes) {
   async function api(req, res, url, sessao) {
     const p = url.pathname;
     const m = req.method;
+
+    if (await foco.tratarRota(req, res, url, sessao)) return undefined;
 
     if (p === '/api/v1/onboarding') {
       if (falhaDoRegistro(req, res, true)) return;
@@ -464,7 +469,7 @@ function criarServidor(opcoes) {
     if (since == null || since <= 0) since = Date.now() / 1000 - 60;
     abrirStream({
       req, res, agente, since, log, tickMs: opcoes.tickSseMs,
-      fontes: { thread: conversa.thread, atividade: conversa.atividade, versaoJs },
+      fontes: { thread: conversa.thread, atividade: conversa.atividade, versaoJs, foco: (a) => foco.lista(a.slug) },
     });
     return undefined;
   }

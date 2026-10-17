@@ -1972,6 +1972,7 @@ function ligaStream() {
   }, true);
   ouve('msgs', integra, true);
   ouve('atividade', integraAtividade, false);
+  ouve('foco', d => window.DGFoco && window.DGFoco.recebe(d), false);
   es.onerror = () => {
     if (fonte !== es) return;
     if (streamAberto) { streamAberto = false; mudouStream(); }
@@ -3580,6 +3581,7 @@ function passosTutorial() {
     como: 'Toque em Conectar, abra a página de login, entre com a sua conta e, no Claude, cole aqui o código que ela mostrar no fim. A tela confere sozinha e avisa quando terminar. Para abrir o cartão a qualquer hora, escreva /login no campo de mensagem e envie: nada vai para o agente.',
     porque: 'Sem conta conectada o agente não consegue responder. Assim você resolve aqui mesmo, sem abrir terminal.' });
   passos.push(passoAlertas());
+  if (window.DGFoco) passos.push(window.DGFoco.passoTutorial());
   passos.push(passoAcervo());
   return passos;
 }

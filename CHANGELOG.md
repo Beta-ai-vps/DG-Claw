@@ -5,6 +5,15 @@ Todas as mudanças importantes do DG Claw ficam neste arquivo.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto adota o
 [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Adicionado
+
+- Modo foco (backend): lista curta por agente que o agente monta e o dono tica na tela. Rotas
+  `/api/v1/foco/<agente>` (lista, itens, eventos com cursor e `docs.md`), evento `foco` no stream da
+  conversa, gancho `foco-hook` (`promptHooks` do `runner.json`) que avisa o agente dos tiques do dono no
+  começo do turno, e a skill `foco`. Contrato em `web/docs/MODO-FOCO.md`.
+
 ## [1.0.0] - 2026-10-17
 
 A v1 troca o plugin do Claude Code por uma plataforma completa: um instalador, um painel web com
