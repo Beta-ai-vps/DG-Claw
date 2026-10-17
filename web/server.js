@@ -291,7 +291,7 @@ function criarServidor(opcoes) {
     if (p === '/api/v1/agents' && m === 'GET') {
       if (falhaDoRegistro(req, res, true)) return undefined;
       const lista = await Promise.all(registro.estado().agentes.map(agentePublico));
-      return H.enviaJson(res, 200, { ok: true, agentes: lista, voz: lista.some((a) => a.voz), microfone: voz.microfone, usuario: sessao.usuario });
+      return H.enviaJson(res, 200, { ok: true, agentes: lista, voz: lista.some((a) => a.voz), microfone: voz.microfone, limite_upload_bytes: config.maxUploadBytes, usuario: sessao.usuario });
     }
 
     if (p === '/api/v1/compartilhados/docs.md' && m === 'GET') {

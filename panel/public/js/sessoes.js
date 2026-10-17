@@ -1,18 +1,21 @@
-// sessoes.js — a aba Sessões: os cards do Bunker, dentro do painel (12/10/2026).
+// sessoes.js — a aba Sessões: os cards de trabalho do agente, dentro do painel (12/10/2026).
 //
 // O QUE ELA É: o desenho da aba "Sessões" do DG Telegram (o mini-Bunker), trazido para cá.
-// Cada sessão é um card do Bunker, uma conversa de Claude trabalhando numa pasta. Aqui o
-// dono vê o que cada uma está fazendo, lê a conversa, manda recado, cria uma nova, pede
-// handoff, arquiva e renomeia.
+// Cada sessão é uma conversa de Claude (ou Codex) trabalhando numa pasta. Aqui o dono vê o
+// que cada uma está fazendo, lê a conversa, manda recado, cria uma nova, pede handoff,
+// arquiva e renomeia.
 //
-// O PAINEL SÓ APRESENTA. Estado, dono, filtro e fonte dos cards moram no DG Telegram; o
-// servidor (lib/sessoes-proxy.js) repassa os pedidos com a chave da agente, que nunca chega
-// aqui. A aba SOME quando /api/sessoes-config diz ligado:false (instalação sem DG Telegram).
+// O PAINEL SÓ APRESENTA. A tela é a mesma nas duas fontes, e /api/sessoes-config diz qual
+// está valendo:
+//   - modo "local" (padrão): cada card é uma sessão paralela do runner deste agente
+//     (lib/sessoes-local.js). Aqui a pessoa DECIDE os pedidos de permissão, pelos botões
+//     Aprovar e Negar (só com login; chave de API não decide);
+//   - modo "proxy": os cards vêm do DG Telegram (lib/sessoes-proxy.js), que guarda a chave
+//     da agente do lado do servidor. Lá decidir pedido, mandar tecla e mexer no cofre só se
+//     faz no DG Telegram, com o login do Danilo; a tela leva até lá por um botão.
+// A aba SOME quando /api/sessoes-config diz ligado:false.
 //
-// O QUE NÃO EXISTE AQUI, DE PROPÓSITO: decidir pedido de permissão, mandar tecla ao terminal
-// e mexer no cofre. Um card não pode aprovar o próprio pedido, então isso só se faz no DG
-// Telegram, com o login do Danilo. A tela mostra o pedido e leva até lá pelo botão
-// "Decidir no DG Telegram"; o servidor recusa essas rotas mesmo que alguém tente chamá-las.
+// O QUE A FONTE NÃO SABE FAZER A TELA ESCONDE, olhando `fonte.recursos` (apagar, decidir...).
 //
 // TODO TEXTO QUE VEM DA API entra no DOM por textContent (função `el`), nunca por innerHTML.
 //
@@ -45,6 +48,15 @@
     ['fechado', 'Fechadas', false, 'Cards sem terminal aberto (foram parados ou terminaram). Dá para retomar. A lista mostra só as 60 mais recentes.'],
     ['arquivado', 'Arquivadas', false, 'Cards que você escondeu da lista. Dá para desarquivar quando quiser.'],
   ];
+
+  // Balões que mudam no modo local (o texto de CHIPS fala do Bunker e do DG Telegram).
+  const CHIPS_LOCAL = {
+    esperando_voce: 'A sessão parou pedindo permissão ou esperando uma resposta sua. Ela não anda enquanto ninguém decidir: abra o card e use Aprovar ou Negar.',
+    trabalhando: 'A sessão está trabalhando agora: o runner deste agente diz que ela está ativa.',
+    erro: 'O runner marcou erro na sessão, ou o estado dela não é conhecido. Dá para retomar.',
+    fechado: 'Sessões dormindo, sem terminal aberto (elas acordam com um recado ou com Retomar). A lista mostra só as 60 mais recentes.',
+    arquivado: 'Sessões que você escondeu da lista. Dá para desarquivar, ou apagar de vez (a conversa continua guardada no disco).',
+  };
 
   // ─── Utilidades ───────────────────────────────────────────────
 
@@ -155,14 +167,64 @@
   // por que está aqui. Passo cujo alvo não está na tela agora (o detalhe, quando a lista
   // está aberta, e o contrário) é pulado pelo motor.
 
+  // Os mesmos passos, com o texto do modo local. Cada um continua dizendo o que é, como funciona e por que está aqui.
+  const PASSOS_LOCAIS = {
+    tela: {
+      titulo: 'As sessões de trabalho deste agente',
+      corpo: 'Cada sessão é uma conversa do agente cuidando de uma tarefa só, como um ajudante sentado num computador, enquanto a conversa principal segue livre. Aqui você vê o que cada uma está fazendo, lê a conversa, aprova ou nega pedidos de permissão, manda um recado, cria sessões novas e arquiva as que acabaram. As sessões que o próprio agente abre com o comando dgclaw-card aparecem aqui também.',
+      porque: 'Sem esta aba, saber se uma sessão parou esperando você exigiria perguntar ao agente. Aqui o aviso aparece junto com o resto, e tudo o que você faz por clique também se faz por chave de API.',
+    },
+    'so-leitura': {
+      corpo: 'O selo "só leitura" aparece quando este painel não tem a proteção de login na frente. Aqui você vê a lista, a conversa e os documentos, mas não manda recado, não cria sessão, não decide pedido e não arquiva.',
+      porque: 'Se a senha deste painel vazasse, alguém conseguiria criar sessões e mandar recados para conversas que rodam sem pedir permissão na máquina. Deixar a escrita desligada fecha esse caminho. Para liberar, quem administra a máquina tira o modo só leitura.',
+    },
+    filtros: {
+      corpo: 'Cada botão é um grupo de sessões pelo estado em que estão. O número entre parênteses é quantas há naquele grupo. "Ativas" junta tudo o que está aberto; "Esperando você" tem borda de alerta quando alguma sessão está parada à sua espera; "Fechadas" são as que dormem e acordam com um recado.',
+      porque: 'O estado vem do runner deste agente, o programa que mantém as sessões vivas. O painel só mostra, para o número daqui nunca discordar do que está acontecendo de verdade.',
+    },
+    pedido: {
+      titulo: 'Sessão esperando você',
+      corpo: 'Quando uma sessão para pedindo permissão (por exemplo, para apagar uma pasta), a linha mostra o pedido com dois botões. Aprovar deixa a sessão fazer o que pediu e seguir; Negar recusa, e ela continua com a recusa.',
+      porque: 'Quem decide é você, e só com o seu login: uma chave de API não aprova pedido, porque um agente não pode autorizar o próprio pedido. A sessão não anda enquanto ninguém decidir.',
+    },
+    nova: {
+      corpo: 'Abre um formulário com o nome, o pedido que a sessão vai receber e, se quiser, a pasta de trabalho (dentro da pasta do agente). A pasta vira a primeira linha do pedido. A sessão usa o mesmo provedor e modelo da conversa principal.',
+      porque: 'Quem lê o pedido não viu a sua conversa. Por isso o formulário pede que você diga o que é e onde fica, em vez de deixar a sessão adivinhar. Há um limite de sessões abertas ao mesmo tempo; se ele for atingido, a tela diz como liberar uma vaga.',
+    },
+    detalhe: {
+      corpo: 'No alto ficam o nome, o estado e a pasta. A estrela marca como favorito e o lápis renomeia. Se o nome tiver o prefixo de status (▶️, ✅ ou ⏳), ele é mantido: você muda só o resto. O nome fica guardado no painel.',
+      porque: 'O prefixo é como as outras sessões e agentes reconhecem o estado pelo nome. Perdê-lo bagunçaria a leitura da lista.',
+    },
+    acoes: {
+      corpo: 'Handoff pede à sessão um resumo para continuar o trabalho numa sessão nova (primeiro consulta se ela já escreveu um). Retomar reabre uma sessão que dorme: "mesma conversa" continua de onde parou, "conversa nova" começa do zero e guarda a antiga. Arquivar para o terminal e esconde a sessão; Desarquivar traz de volta; Apagar (só nas arquivadas) tira de vez e libera a vaga.',
+      porque: 'Arquivar não apaga nada: a conversa continua guardada e a sessão pode voltar. Apagar existe porque há um limite de sessões abertas, e as arquivadas ainda ocupam vaga até serem apagadas. A principal e a de bastidores não se arquivam nem se apagam.',
+    },
+    docs: {
+      corpo: 'Abra esta seção para listar os arquivos que a sessão mencionou nas respostas e que existem na pasta do agente. Texto abre numa janela de leitura aqui mesmo; PDF e imagem abrem numa aba nova.',
+      porque: 'Só entram arquivos que a própria sessão citou e que ficam dentro da pasta do agente, e nunca os escondidos (como o .env). Assim a tela não vira um jeito de ler qualquer coisa da máquina.',
+    },
+    recado: {
+      corpo: 'Escreva e envie. Com "Esperar ele terminar" marcado, o recado entra numa fila e chega quando a sessão ficar livre; sem marcar, ele é digitado no terminal na hora. O clipe anexa uma foto ou arquivo (até 50 MB) e escreve o caminho dele no recado. Se a sessão dorme, o painel oferece retomar e enviar.',
+      porque: 'Mandar na hora enquanto a sessão trabalha pode interromper o raciocínio dela; a fila evita isso. Se ela está esperando uma permissão, o recado fica desligado, porque ele cairia dentro do menu de permissão.',
+    },
+  };
+
   function passosDoTutorial() {
-    const todos = passosBase();
+    let todos = passosBase();
+    if (modoLocal()) todos = todos.map((p) => Object.assign({}, p, PASSOS_LOCAIS[p.chave] || {}));
     if (!soLeitura()) return todos;
     // Só leitura: o que o passo diria sobre ações não vale, então ele troca de texto. Passos
     // de coisas escondidas (nova sessão, recado) são pulados pelo motor, que ignora alvo ausente.
     return todos.map((p) => {
       if (p.chave === 'detalhe') {
         return Object.assign({}, p, { corpo: 'No alto ficam o nome, o estado e a pasta do card. Aqui não há estrela nem lápis de renomear: nesta aba só se lê.' });
+      }
+      if (p.chave === 'acoes' && modoLocal()) {
+        return Object.assign({}, p, {
+          titulo: 'Sem ações neste painel',
+          corpo: 'Neste painel não há botões de handoff, retomar, arquivar nem apagar: a aba só mostra.',
+          porque: 'Este painel não tem a proteção de login na frente. As ações voltam quando quem administra a máquina tira o modo só leitura.',
+        });
       }
       if (p.chave === 'acoes') {
         return Object.assign({}, p, {
@@ -304,9 +366,13 @@
   // Painel sem Cloudflare Access na frente (o da Isa): a aba só lê. O servidor recusa toda escrita
   // com 403; aqui a tela esconde o que não funcionaria, em vez de mostrar botão que só dá erro.
   const soLeitura = () => !!(cfg && cfg.soLeitura);
-  const TEXTO_SO_LEITURA = 'Neste painel a aba Sessões é só para ler: as ações (recado, criar, arquivar, renomear...) ficam no DG Telegram, porque este painel não tem a proteção de login do Cloudflare na frente.';
+  const TEXTO_SO_LEITURA_PROXY = 'Neste painel a aba Sessões é só para ler: as ações (recado, criar, arquivar, renomear...) ficam no DG Telegram, porque este painel não tem a proteção de login do Cloudflare na frente.';
+  const TEXTO_SO_LEITURA_LOCAL = 'Neste painel a aba Sessões é só para ler: as ações (recado, criar, arquivar, renomear...) estão desligadas porque este painel não tem a proteção de login na frente.';
+  const textoSoLeitura = () => (modoLocal() ? TEXTO_SO_LEITURA_LOCAL : TEXTO_SO_LEITURA_PROXY);
 
   const FN = () => (fonte && fonte.nome) || 'Bunker';
+  // Modo local: os cards são sessões do runner deste agente (ver o cabeçalho deste arquivo).
+  const modoLocal = () => !!(cfg && cfg.modo === 'local');
   // Recurso antigo: assume ligado até a fonte dizer que não. Recurso da fase 2: só aparece se a fonte disser que tem.
   const rec = (k) => !fonte || !fonte.recursos || fonte.recursos[k] === undefined || !!fonte.recursos[k];
   const recOn = (k) => !!(fonte && fonte.recursos && fonte.recursos[k]);
@@ -319,11 +385,13 @@
   // ─── Esqueleto ────────────────────────────────────────────────
 
   function cabecalho() {
-    const texto = 'Os cards do Bunker, as conversas de Claude que trabalham em pastas. Veja o que cada um faz, mande recado e crie sessões novas.';
+    const texto = modoLocal()
+      ? 'As sessões de trabalho deste agente: conversas que andam em paralelo com a principal. Veja o que cada uma faz, aprove ou negue pedidos, mande recado e crie sessões novas.'
+      : 'Os cards do Bunker, as conversas de Claude que trabalham em pastas. Veja o que cada um faz, mande recado e crie sessões novas.';
     return el('div', { class: 'app-cabeca' },
       el('div', { class: 'app-cabeca-linha' },
         el('h2', { title: texto }, 'Sessões'),
-        soLeitura() ? el('span', { class: 'sx-selo', id: 'sx-selo', title: TEXTO_SO_LEITURA, tabindex: '0' }, 'só leitura') : null,
+        soLeitura() ? el('span', { class: 'sx-selo', id: 'sx-selo', title: textoSoLeitura(), tabindex: '0' }, 'só leitura') : null,
         soLeitura() ? ajuda('so-leitura', 'Por que esta aba é só para ler') : null,
         el('button', { type: 'button', class: 'app-tutorial-abrir', id: 'sessoes-tutorial-abrir', title: 'Uma visita guiada por esta tela, passo a passo.', onclick: () => abrirTutorial(0) }, 'Tutorial'),
         ajuda('tela', 'O que é a aba Sessões')),
@@ -337,7 +405,7 @@
     if (!cfg || !cfg.ligado) {
       r.append(el('div', { class: 'app-erro' },
         el('strong', null, 'A aba Sessões não está ligada'),
-        el('p', null, (cfg && cfg.motivo) || 'Não consegui saber se esta instalação tem o DG Telegram. Recarregue a página.')));
+        el('p', null, (cfg && cfg.motivo) || 'Não consegui saber se a aba Sessões está ligada nesta instalação. Recarregue a página.')));
       return false;
     }
     const aviso = el('div', { class: 'sx-aviso', id: 'sx-aviso', role: 'status', hidden: true });
@@ -353,12 +421,12 @@
     });
     const nova = el('button', {
       type: 'button', class: 'sx-btn prim', id: 'sx-nova', hidden: true, onclick: abreNova,
-      title: 'Cria um card novo no Bunker, com o pedido que você escrever.',
+      title: modoLocal() ? 'Abre uma sessão de trabalho nova neste agente, com o pedido que você escrever.' : 'Cria um card novo no Bunker, com o pedido que você escrever.',
     }, '+ Nova sessão');
     const lista = el('div', { class: 'sx-lista', id: 'sx-lista' });
     const vistaLista = el('div', { id: 'sx-vista-lista' },
       el('div', { class: 'cartao' },
-        el('div', { class: 'section-title' }, 'Cards do Bunker', ajuda('lista', 'O que é a lista de cards')),
+        el('div', { class: 'section-title' }, modoLocal() ? 'Sessões do agente' : 'Cards do Bunker', ajuda('lista', 'O que é a lista de cards')),
         chips,
         el('div', { class: 'sx-busca', id: 'sx-busca' }, campo, nova),
         lista));
@@ -394,20 +462,45 @@
       else if (comN && contagem) n = ` (${c[g] || 0})`;
       const alerta = g === 'esperando_voce' && (c.esperando_voce || 0) > 0;
       box.append(el('button', {
-        type: 'button', role: 'tab', 'aria-selected': String(filtro === g), title: balao,
+        type: 'button', role: 'tab', 'aria-selected': String(filtro === g), title: (modoLocal() && CHIPS_LOCAL[g]) || balao,
         class: `sx-chip${alerta ? ' alerta' : ''}${g === 'erro' ? ' erro' : ''}`,
         onclick: () => { filtro = g; sigChips = ''; sigLista = ''; renderChips(); carregaLista(true); },
       }, rot + n));
     }
   }
 
+  /** Aprova ou nega o pedido de permissão (modo local, só com login: chave de API recebe 403). */
+  async function decidePedido(id, acao, botoes) {
+    for (const b of botoes) b.disabled = true;
+    try {
+      const res = await chama(`/api/sessoes/${encodeURIComponent(id)}/decidir`, { method: 'POST', body: { acao } });
+      if (!res.ok) { mostraAviso(`Não consegui ${acao === 'aprovar' ? 'aprovar' : 'negar'} o pedido: ${textoErro(res)}`); return; }
+      mostraAviso('');
+      if (det && det.id === id) { det.msgAcao = null; pollDetalhe(); }
+      carregaLista(true);
+    } catch (e) {
+      mostraAviso(`${e.message} A decisão pode ter chegado: confira o card antes de repetir.`);
+    } finally {
+      for (const b of botoes) if (b.isConnected) b.disabled = false;
+    }
+  }
+
   function caixaPedido(it) {
     const g = grupoDe(it);
     if (g !== 'esperando_voce' && !it.pedido) return null;
+    const texto = el('p', { class: 'sx-ped-txt' }, it.pedido || 'A sessão parou esperando uma permissão ou uma resposta.');
+    const cab = el('div', { class: 'sx-ped-cab' }, el('b', null, 'Esperando você'),
+      ajuda('pedido', modoLocal() ? 'Como decidir o pedido' : 'Por que a decisão não é tomada aqui'));
+    if (recOn('decidir')) {
+      if (soLeitura()) return el('div', { class: 'sx-pedido' }, cab, texto, el('p', { class: 'sx-ped-nota' }, textoSoLeitura()));
+      const aprovar = el('button', { type: 'button', class: 'sx-btn prim', title: 'Deixa a sessão fazer o que ela pediu e seguir trabalhando.' }, 'Aprovar');
+      const negar = el('button', { type: 'button', class: 'sx-btn perigo', title: 'Recusa o pedido: a sessão não faz o que pediu e segue com a recusa.' }, 'Negar');
+      aprovar.addEventListener('click', () => decidePedido(it.id, 'aprovar', [aprovar, negar]));
+      negar.addEventListener('click', () => decidePedido(it.id, 'negar', [aprovar, negar]));
+      return el('div', { class: 'sx-pedido' }, cab, texto, el('div', { class: 'sx-btns' }, aprovar, negar));
+    }
     const link = linkDoTelegram(cfg, 'pedidos', it.id);
-    return el('div', { class: 'sx-pedido' },
-      el('div', { class: 'sx-ped-cab' }, el('b', null, 'Esperando você'), ajuda('pedido', 'Por que a decisão não é tomada aqui')),
-      el('p', { class: 'sx-ped-txt' }, it.pedido || 'O card parou esperando uma permissão ou uma resposta.'),
+    return el('div', { class: 'sx-pedido' }, cab, texto,
       link ? el('a', {
         class: 'sx-btn prim', href: link, target: '_blank', rel: 'noopener',
         title: 'A decisão não é tomada aqui: um card não pode aprovar o próprio pedido. Abre o DG Telegram, onde só o login do Danilo decide.',
@@ -535,7 +628,8 @@
     const nome = el('input', { id: 'sx-n-nome', maxlength: NOME_MAX, autocomplete: 'off', value: n.nome, placeholder: 'Ex.: Ajustar a tela de lembretes' });
     const prompt = el('textarea', { id: 'sx-n-prompt', maxlength: 20000, placeholder: 'O que ele precisa fazer. Quem ler não viu a sua conversa: diga o que é e onde fica.' });
     prompt.value = n.prompt;
-    const pasta = el('input', { id: 'sx-n-pasta', autocomplete: 'off', value: n.pasta, placeholder: 'Deixe vazio para usar a pasta padrão da agente' });
+    const pasta = el('input', { id: 'sx-n-pasta', autocomplete: 'off', value: n.pasta, placeholder: local ? 'Deixe vazio para trabalhar na pasta do agente' : 'Deixe vazio para usar a pasta padrão da agente' });
+    const local = modoLocal();
     const perm = el('select', { id: 'sx-n-perm', title: 'Automática: o Bunker só barra o que é arriscado. Pedir sempre: cada ação passa por você, no DG Telegram.' },
       el('option', { value: 'auto' }, 'Automática (só barra o arriscado)'),
       el('option', { value: 'default' }, 'Pedir sempre (cada ação passa por você)'));
@@ -551,7 +645,7 @@
         el('label', null, 'Nome', nome),
         el('label', null, 'Pedido para o card', prompt),
         el('label', null, 'Pasta de trabalho (opcional)', pasta),
-        el('label', null, 'Permissão', perm),
+        local ? null : el('label', null, 'Permissão', perm),
         erro,
         el('div', { class: 'sx-btns' }, cria, cancela)));
     const fecha = () => { folha.remove(); document.removeEventListener('keydown', esc); };
@@ -570,7 +664,9 @@
       cria.textContent = 'Criando...';
       try {
         // Sem `agente`: a chave da agente decide o dono do card.
-        const res = await chama('/api/sessoes', { method: 'POST', timeoutMs: 80000, body: { nome: vNome, prompt: vPrompt, pasta: pasta.value.trim() || null, permissao: perm.value } });
+        const corpo = { nome: vNome, prompt: vPrompt, pasta: pasta.value.trim() || null };
+        if (!local) corpo.permissao = perm.value;
+        const res = await chama('/api/sessoes', { method: 'POST', timeoutMs: 80000, body: corpo });
         if (!res.ok) { falha(textoErro(res)); return; }
         novaRascunho = { nome: '', prompt: '', pasta: '', permissao: 'auto' };
         fecha();
@@ -744,31 +840,42 @@
 
     const off = d.ocupado;
     const botoes = [];
+    // A principal e a de bastidores (modo local) ficam sempre: sem arquivar, apagar nem handoff.
+    const fixa = it.papel === 'principal' || it.papel === 'bastidores';
     if (soLeitura()) {
       const href = linkDoTelegram(cfg, 'pedidos', it.id);
       if (href) {
-        botoes.push(el('a', { class: 'sx-btn prim', href, target: '_blank', rel: 'noopener', title: TEXTO_SO_LEITURA }, 'Abrir no DG Telegram'));
+        botoes.push(el('a', { class: 'sx-btn prim', href, target: '_blank', rel: 'noopener', title: textoSoLeitura() }, 'Abrir no DG Telegram'));
       } else {
-        botoes.push(el('p', { class: 'sx-ped-nota' }, TEXTO_SO_LEITURA));
+        botoes.push(el('p', { class: 'sx-ped-nota' }, textoSoLeitura()));
       }
-    } else if (it.tem_terminal && rec('handoff')) {
+    } else if (it.tem_terminal && rec('handoff') && !fixa) {
       botoes.push(el('button', { type: 'button', class: 'sx-btn sec', disabled: off, onclick: () => acaoHandoff(d),
         title: 'Pede ao card um resumo para continuar o trabalho numa sessão nova. Primeiro consulta se ele já escreveu um; depois pede a sua confirmação.' }, 'Handoff'));
     }
     if (!soLeitura() && precisaRetomar(it) && !it.arquivado && rec('retomar')) {
       botoes.push(el('button', { type: 'button', class: 'sx-btn prim', disabled: off, onclick: () => acaoSimples(d, 'retomar'),
-        title: 'Reabre o terminal de um card fechado, para ele poder trabalhar e receber recados.' }, 'Retomar'));
+        title: modoLocal() ? 'Reabre o terminal e continua a MESMA conversa de onde ela parou.' : 'Reabre o terminal de um card fechado, para ele poder trabalhar e receber recados.' },
+      modoLocal() ? 'Retomar (mesma conversa)' : 'Retomar'));
+      if (modoLocal()) {
+        botoes.push(el('button', { type: 'button', class: 'sx-btn sec', disabled: off, onclick: () => acaoSimples(d, 'retomar-nova'),
+          title: 'Abre uma conversa NOVA nesta sessão (a antiga fica guardada no disco). Use quando a conversa travou ou não volta.' }, 'Conversa nova'));
+      }
     }
     if (soLeitura()) {
       // só o link acima
     } else if (it.arquivado) {
       botoes.push(el('button', { type: 'button', class: 'sx-btn sec', disabled: off, onclick: () => acaoSimples(d, 'desarquivar'),
         title: 'Traz o card de volta para a lista de ativas.' }, 'Desarquivar'));
-    } else if (rec('parar')) {
+      if (recOn('apagar') && !fixa) {
+        botoes.push(el('button', { type: 'button', class: 'sx-btn perigo', disabled: off, onclick: () => acaoSimples(d, 'apagar'),
+          title: 'Tira a sessão da lista de vez e libera a vaga. A conversa continua guardada no disco.' }, 'Apagar'));
+      }
+    } else if (rec('parar') && !fixa) {
       botoes.push(el('button', { type: 'button', class: 'sx-btn perigo', disabled: off, onclick: () => acaoSimples(d, 'arquivar'),
         title: 'Para o terminal do card e esconde ele da lista. Nada é apagado: dá para retomar e desarquivar depois.' }, 'Arquivar'));
     }
-    const sigAcoes = JSON.stringify([it.id, soLeitura(), botoes.length, off, it.tem_terminal, it.arquivado, grupoDe(it), rec('handoff'), rec('retomar'), rec('parar')]);
+    const sigAcoes = JSON.stringify([it.id, soLeitura(), botoes.length, off, it.tem_terminal, it.arquivado, grupoDe(it), rec('handoff'), rec('retomar'), rec('parar'), recOn('apagar'), fixa]);
     if (sigAcoes !== d.sigAcoes) {
       d.sigAcoes = sigAcoes;
       r.acoes.textContent = '';
@@ -784,9 +891,11 @@
 
     r.docs.hidden = !recOn('documentos');
 
-    const bloqueio = it.estado === 'pedindo_permissao';
+    const bloqueio = it.estado === 'pedindo_permissao' || (recOn('decidir') && it.grupo === 'esperando_voce');
     const nota = bloqueio
-      ? 'O card está esperando você autorizar um pedido. Decida no DG Telegram: um recado agora cairia dentro do menu de permissão.'
+      ? (recOn('decidir')
+        ? 'A sessão está esperando você autorizar um pedido. Use Aprovar ou Negar acima: um recado agora cairia dentro do menu de permissão.'
+        : 'O card está esperando você autorizar um pedido. Decida no DG Telegram: um recado agora cairia dentro do menu de permissão.')
       : (d.notaEnvio ? d.notaEnvio.texto : '');
     r.texto.disabled = bloqueio;
     r.livre.disabled = bloqueio;
@@ -991,7 +1100,7 @@
     if (acao === 'arquivar') {
       const v = await escolhe({
         titulo: 'Arquivar essa sessão?',
-        texto: 'Arquivar para o terminal do card (ele continua podendo ser retomado depois) e esconde a sessão da lista de ativas. Dá para desarquivar quando quiser.',
+        texto: 'Arquivar para o terminal da sessão (ela continua podendo ser retomada depois) e esconde a sessão da lista de ativas. Dá para desarquivar quando quiser.',
         opcoes: [{ rotulo: 'Arquivar', valor: 'sim', prim: true }, { rotulo: 'Cancelar', valor: null }],
       });
       if (v !== 'sim' || det !== d) return;
@@ -1003,8 +1112,21 @@
       if (await postAcao(d, '/desarquivar', {}, 'Sessão desarquivada.')) pollDetalhe();
       return;
     }
-    if (acao === 'retomar') {
-      if (await postAcao(d, '/retomar', {}, `Pedi ao ${FN()} para reabrir o terminal desse card.`)) pollDetalhe();
+    if (acao === 'apagar') {
+      const v = await escolhe({
+        titulo: 'Apagar essa sessão?',
+        texto: 'A sessão sai da lista de vez e a vaga dela é liberada. A conversa continua guardada no disco, mas a sessão não volta pela tela.',
+        opcoes: [{ rotulo: 'Apagar', valor: 'sim', prim: true }, { rotulo: 'Cancelar', valor: null }],
+      });
+      if (v !== 'sim' || det !== d) return;
+      const res = await postAcao(d, '/apagar', {}, 'Sessão apagada.');
+      if (res && det === d) { rascunhos.delete(d.id); voltaLista(); }
+      return;
+    }
+    if (acao === 'retomar' || acao === 'retomar-nova') {
+      const nova = acao === 'retomar-nova';
+      const ok = nova ? 'Abri uma conversa nova nessa sessão.' : (modoLocal() ? 'Pedi ao agente para retomar a conversa dessa sessão.' : `Pedi ao ${FN()} para reabrir o terminal desse card.`);
+      if (await postAcao(d, '/retomar', nova ? { nova: true } : {}, ok)) pollDetalhe();
     }
   }
 
@@ -1050,6 +1172,14 @@
     if (det !== d) return;
     const res = await postAcao(d, '/handoff', { usar_existente: usar, apagar_antigo: false },
       h.modo === 'compact-no-lugar' ? 'Pedi para compactar o card no lugar.' : 'Handoff pedido ao card.');
+    if (res && res.corpo && res.corpo.abrir_em && res.corpo.abrir_em !== d.id) {
+      // Handoff concluído: a continuação é um card novo, e é nele que a pessoa quer cair.
+      rascunhos.delete(d.id);
+      const novoId = res.corpo.abrir_em;
+      voltaLista();
+      abreDetalhe(novoId, res.corpo.novo || null);
+      return;
+    }
     if (res) pollDetalhe();
   }
 
@@ -1128,7 +1258,7 @@
       corpo.append(el('p', { class: 'sx-vazio' }, 'O card ainda não citou nenhum documento que exista no disco.'));
     } else {
       corpo.append(el('div', { class: 'sx-docs-lista' }, d.docs.map((x, i) =>
-        el('button', { type: 'button', class: 'sx-doc', onclick: () => abreDocumento(i), title: 'PDF abre numa aba nova; texto abre numa janela de leitura aqui.' },
+        el('button', { type: 'button', class: 'sx-doc', onclick: () => abreDocumento(i), title: 'PDF e imagem abrem numa aba nova; texto abre numa janela de leitura aqui.' },
           el('span', { class: 'sx-doc-nome' }, x.nome),
           el('span', { class: 'sx-meta' }, [x.pasta, tamanho(x.tamanho), quando(x.quando)].filter(Boolean).join(' · '))))));
     }
@@ -1158,7 +1288,7 @@
     const d = det;
     const doc = d && d.docs && d.docs[i];
     if (!doc) return;
-    if ((doc.tipo || '').toLowerCase() === 'pdf') {
+    if (['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes((doc.tipo || '').toLowerCase())) {
       window.open(urlDocumento(d.id, doc.caminho), '_blank', 'noopener');
       return;
     }
@@ -1216,6 +1346,13 @@
     aba._sessoes = true;
     cfg = await carregarConfig();
     if (cfg && cfg.ligado) aba.hidden = false;
+    if (cfg && cfg.ligado && cfg.modo === 'local' && window.definirTextoDaAba) {
+      window.definirTextoDaAba('sessoes', {
+        subtitulo: 'as sessões de trabalho deste agente: o que cada uma faz agora',
+        explicacao: 'As sessões de trabalho deste agente, que andam em paralelo com a conversa principal. Veja o que cada uma está '
+          + 'fazendo, leia a conversa, aprove ou negue pedidos de permissão, mande recado e crie sessões novas.',
+      });
+    }
     // Voltar para a aba atualiza na hora, em vez de esperar o próximo ciclo de 10 s.
     aba.addEventListener('click', () => setTimeout(() => { if (raiz() && raiz().firstChild && cfg && cfg.ligado) tick(); }, 0));
   }
