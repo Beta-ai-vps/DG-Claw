@@ -585,12 +585,39 @@ if [ -d "$EXTDIR" ]; then
 fi
 [ "$NEXT" = "0" ] && I "nenhuma extensao instalada (o agente roda inteiro assim; o DG Alive acrescenta a vida emocional)"
 
+# Mesa de tarefas LOCAL (DG Claw Web): o agente usa dgclaw-mesa, que fala com o Web pela caixa
+# (dgclaw-api). Nao depende do DG Telegram nem de variavel nenhuma.
+for MESA_CMD in dgclaw-mesa dgclaw-api; do
+    if command -v "$MESA_CMD" >/dev/null 2>&1 || [ -x "$PLUGIN/bin/$MESA_CMD" ] || [ -x "/opt/dgclaw/app/bin/$MESA_CMD" ]; then
+        P "mesa de tarefas local: o comando $MESA_CMD existe"
+    elif [ "$MESA_CMD" = "dgclaw-mesa" ]; then
+        W "mesa de tarefas local: o comando dgclaw-mesa nao foi encontrado -> atualize o DG Claw (a imagem do agente traz o comando) e rode 'sudo dgclaw agente reparar $SLUG'"
+    else
+        W "mesa de tarefas local: o comando dgclaw-api (a caixa do agente) nao foi encontrado -> atualize o DG Claw e rode 'sudo dgclaw agente reparar $SLUG'; sem ele o agente nao fala com o Web"
+    fi
+done
+if [ -f "$WS/CLAUDE.md" ]; then
+    # So a secao nova conta: a antiga tinha o titulo com "(so se o seu ambiente tiver DGCLAW_MESA_URL)".
+    if grep -q '^## Mesa de tarefas *$' "$WS/CLAUDE.md"; then
+        P "mesa de tarefas local: o CLAUDE.md tem a secao Mesa de tarefas"
+    else
+        W "o CLAUDE.md nao tem a secao Mesa de tarefas atual: o agente nao sabe quando criar e atualizar tarefas na mesa -> rode com --fix"
+        if [ "$FIX" = "1" ] && grep -q '^## Mesa de tarefas *$' "$PLUGIN/templates/CLAUDE.md.tmpl" 2>/dev/null; then
+            [ -f "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-mesa" ] || cp -p "$WS/CLAUDE.md" "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-mesa"
+            { echo; awk '/^## /{f=($0 ~ /^## Mesa de tarefas *$/)} f' "$PLUGIN/templates/CLAUDE.md.tmpl" \
+                | sed "s/{{DONO}}/${DGCLAW_OWNER:-dono}/g"; } >> "$WS/CLAUDE.md"
+            [ "$WS_OWNER" != "root" ] && chown "$WS_OWNER:" "$WS/CLAUDE.md" 2>/dev/null
+            F "secao Mesa de tarefas acrescentada no fim do CLAUDE.md (backup ao lado; vale na proxima leitura)"
+        fi
+    fi
+fi
+
 # Mesa de tarefas do DG Telegram (opcional, 05/10/2026): so existe pra quem tem o app, entao
 # ficar sem ela e escolha, nao falta. A chave nunca e impressa: entra no curl pela entrada
 # padrao (nem a lista de processos mostra) e so o codigo HTTP volta pra tela.
 MESA_URL="${DGCLAW_MESA_URL:-}"; MESA_KEY="${DGCLAW_MESA_KEY:-}"
 if [ -z "$MESA_URL" ] && [ -z "$MESA_KEY" ]; then
-    I "mesa de tarefas: desligada (sem DGCLAW_MESA_URL no config; e opcional, so pra quem tem o DG Telegram)"
+    I "integracao antiga com o DG Telegram: desligada (sem DGCLAW_MESA_URL no config). E opcional e a mesa de tarefas local nao depende dela"
 elif [ -z "$MESA_URL" ] || [ -z "$MESA_KEY" ]; then
     if [ -z "$MESA_URL" ]; then MESA_FALTA="DGCLAW_MESA_URL"; else MESA_FALTA="DGCLAW_MESA_KEY"; fi
     B "mesa de tarefas pela metade: falta $MESA_FALTA no config.sh, e sem as duas o agente nao usa a mesa -> docs/MESA-DE-TAREFAS.md"

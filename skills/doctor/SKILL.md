@@ -122,10 +122,11 @@ Ele reinicia o servico sozinho quando o conserto so vale depois do restart.
 - **a reflexao da noite nao escreve o diario ha N dias:** o recado sai, mas a sessao
   nao executa. Quase sempre e sessao travada ou login vencido: siga o
   `/dgclaw:socorro` (manual, secoes 3.3 e 3.6).
-- **mesa de tarefas:** e opcional, so pra quem tem o app DG Telegram; "desligada" e o normal
-  pra quem nao tem. Pela metade, chave recusada (401) ou sem resposta: diga ao dono o que a
-  linha diz e o que fazer, e NUNCA mostre a chave (nem leia o config.sh em voz alta). CLAUDE.md
-  sem a secao com a mesa ligada: `--fix` acrescenta. Detalhes em `docs/MESA-DE-TAREFAS.md`.
+- **mesa de tarefas:** a mesa local vem ligada de fabrica (tela /mesa no Web, comando
+  dgclaw-mesa no agente). Sem dgclaw-mesa ou dgclaw-api: a imagem do agente e antiga, atualize
+  e repare o agente. CLAUDE.md sem a secao "## Mesa de tarefas": `--fix` acrescenta. A linha da
+  integracao antiga com o DG Telegram e opcional; "desligada" e o normal. Detalhes em
+  `docs/MESA-DE-TAREFAS.md`.
 - **quadro de avisos:** anda junto com a mesa (mesma chave). "Hook nao ligado" quer dizer que o
   agente posta mas nao le os avisos dos outros: com o plugin habilitado no Claude isso nao
   acontece; instalado a mao, siga `docs/QUADRO-DE-AVISOS.md` (secao Ligar o hook). A sessao
