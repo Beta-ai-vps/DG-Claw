@@ -128,6 +128,9 @@ def main():
         destino = pasta_nova(zip_path)
         raiz = destino.resolve()
         feitos = 0
+        # Teto do TOTAL descompactado, contado no que sai de fato (o tamanho declarado
+        # no zip pode mentir, e um teto por entrada deixaria N entradas somarem N vezes o limite).
+        restante = max_bytes
         for m in membros:
             alvo = (raiz / m.filename.replace("\\", "/")).resolve()
             # Segunda trava, depois da listagem: o caminho final tem que ficar dentro da pasta nova.
@@ -140,14 +143,13 @@ def main():
             alvo.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with zf.open(m) as origem, open(alvo, "xb") as saida:
-                    restante = max_bytes
                     while True:
                         bloco = origem.read(1024 * 1024)
                         if not bloco:
                             break
                         restante -= len(bloco)
                         if restante < 0:
-                            recusa(f'a entrada "{m.filename}" passou do limite de '
+                            recusa(f'o zip passou do limite total de '
                                    f"{max_bytes // 1048576} MB ao descompactar (o tamanho "
                                    f"declarado no zip mentia). Parei; apague {destino}.")
                         saida.write(bloco)
