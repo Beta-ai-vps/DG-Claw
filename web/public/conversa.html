@@ -28,6 +28,8 @@ if (navigator.standalone === true ||
 <link rel="stylesheet" href="/campo-cofre.css">
 <link rel="stylesheet" href="/barra.css">
 <link rel="stylesheet" href="/sigilo.css">
+<link rel="stylesheet" href="/lembretes.css">
+<link rel="stylesheet" href="/foco-tela.css">
 </head>
 <body>
 
@@ -74,6 +76,7 @@ if (navigator.standalone === true ||
   </div>
   <nav class="ml-tabs" id="mlTabs" aria-label="Páginas do agente">
     <div data-tour="gm-conversa"><button type="button" class="ml-tab ativo" id="gmIrConversa" aria-current="page"><span class="ml-ico" aria-hidden="true">◔</span>Conversa</button></div>
+    <div data-tour="gm-mesa"><a class="ml-tab" href="/mesa"><span class="ml-ico" aria-hidden="true">▦</span>Mesa de tarefas</a></div>
     <div id="mlPainel" data-tour="gm-painel" hidden></div>
   </nav>
   <section class="ml-config" id="mlConfig" data-tour="gm-config" aria-label="Configurações">
@@ -148,6 +151,8 @@ if (navigator.standalone === true ||
 <script src="/campo-cofre.js"></script>
 <script src="/barra.js"></script>
 <script src="/sigilo.js"></script>
+<script src="/lembretes-faixa.js"></script>
+<script src="/foco-tela.js"></script>
 <script src="/conversa.js"></script>
 <script>
 /* Teclado do iPhone (o teclado, a barra de sugestões ou a de preenchimento

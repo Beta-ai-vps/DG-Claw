@@ -23,11 +23,17 @@ const { criarProxy } = require('./lib/proxy');
 const { criarCofreAgente } = require('./lib/cofre-agente');
 const { criarCofreRotas } = require('./lib/cofre-rotas');
 const { criarAlertas } = require('./lib/alertas');
+const { criarFoco } = require('./lib/foco');
 const { criarVoz } = require('./lib/voz');
 const { criarSigilo } = require('./lib/sigilo');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
 const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
+const { criarCaixaAgente, quemChamou } = require('./lib/caixa-agente');
+const { criarPush } = require('./lib/push');
+const { criarLembretes } = require('./lib/lembretes');
+const { criarMesa } = require('./lib/mesa');
+const { criarAvisos } = require('./lib/avisos');
 
 const METODOS_QUE_ESCREVEM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const TIPOS_ESTATICOS = {
@@ -82,6 +88,19 @@ function criarServidor(opcoes) {
   const sigilo = opcoes.sigilo || criarSigilo({ env: config.env, registro, dataDir: config.dataDir, log, timeoutMs: opcoes.timeoutSigiloMs });
   const cofreRotas = criarCofreRotas({ config, runner, cofre: cofreAgente, voz, log });
   const proxy = criarProxy({ config, registro, log, cofreRotas });
+  const caixa = criarCaixaAgente({ config, registro, log, porta: () => servidor.address().port, agora: opcoes.agora });
+  const push = criarPush({ dataDir: config.dataDir, log, agora: opcoes.agora, enviarHttp: opcoes.enviarPush });
+  try { push.garantirChaves(); } catch (e) { log('erro', e.message); }
+  const lembretes = criarLembretes({ config, registro, runner, push, log, agora: opcoes.agora });
+  caixa.permitir('/api/v1/lembretes');
+  // Modo foco: o agente chega pela caixa (dgclaw-api), o retrato vai para a casa dele e o PUT do agente avisa o celular.
+  const foco = criarFoco({ dir: path.join(config.dataDir, 'foco'), tz: config.tz, log, registro, gravaRetrato: opcoes.gravaRetrato || caixa.gravaRetrato, push: opcoes.push || push, quemChamou: opcoes.quemChamou || quemChamou });
+  caixa.permitir('/api/v1/foco');
+  const mesa = criarMesa({ arquivo: path.join(config.dataDir, 'mesa', 'tarefas.json'), registro, runner, log, agora: opcoes.agora, tz: config.tz, avisarDono: (aviso) => push.enviar(aviso) });
+  // O agente fala com a Mesa pelo dgclaw-mesa, que passa pela caixa: a rota precisa estar liberada.
+  caixa.permitir('/api/v1/tarefas');
+  const avisos = criarAvisos({ config, registro, runner, caixa, log, agora: opcoes.agora });
+  caixa.permitir('/api/v1/avisos');
 
   let versaoJsCache = { ts: 0, valor: '0' };
   /** Versão da tela: mtime de conversa.js. A tela compara com a que carregou e se recarrega sozinha. */
@@ -257,6 +276,11 @@ function criarServidor(opcoes) {
   async function api(req, res, url, sessao) {
     const p = url.pathname;
     const m = req.method;
+    if (p.startsWith('/api/v1/tarefas') && await mesa.rota(req, res, url, sessao)) return undefined;
+
+    if (await foco.tratarRota(req, res, url, sessao)) return undefined;
+
+    if ((p === '/api/v1/lembretes' || p.startsWith('/api/v1/lembretes/')) && await lembretes.rotas(req, res, url, sessao)) return undefined;
 
     if (p === '/api/v1/onboarding') {
       if (falhaDoRegistro(req, res, true)) return;
@@ -356,6 +380,21 @@ function criarServidor(opcoes) {
       } else if (lr[2] === 'oi' && m === 'POST') r = await login.primeiroOi(agente);
       if (!r) return H.erroJson(res, 405, `Método inválido para ${p}. Use GET, POST e DELETE em /login, e POST em /login/codigo e /login/oi.`);
       return H.enviaJson(res, r.status, r.corpo);
+    }
+
+    if (p === '/api/v1/caixa/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, '..', 'docs', 'CAIXA-DO-AGENTE.md'), 'utf8'));
+    }
+    if (p === '/api/v1/push/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'AVISOS-NO-APARELHO.md'), 'utf8'));
+    }
+    if (p === '/api/v1/avisos' || p.startsWith('/api/v1/avisos/')) {
+      if (await avisos.tratar(req, res, url, sessao)) return undefined;
+    }
+    if (p === '/api/v1/push' || p.startsWith('/api/v1/push/')) {
+      if (await push.rotas(req, res, url, sessao)) return undefined;
     }
 
     if (p === '/api/v1/comandos/docs.md' && m === 'GET') {
@@ -489,7 +528,7 @@ function criarServidor(opcoes) {
     if (since == null || since <= 0) since = Date.now() / 1000 - 60;
     abrirStream({
       req, res, agente, since, log, tickMs: opcoes.tickSseMs,
-      fontes: { thread: conversa.thread, atividade: conversa.atividade, versaoJs },
+      fontes: { thread: conversa.thread, atividade: conversa.atividade, versaoJs, foco: (a) => foco.lista(a.slug) },
     });
     return undefined;
   }
@@ -607,8 +646,14 @@ function criarServidor(opcoes) {
       res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     }
 
-    // CSRF: toda escrita exige Origin igual à do próprio Web.
-    if (ehMutacao(req) && !origemOk(req)) {
+    // Pedido interno da caixa de um agente: só rotas /api/ liberadas com caixa.permitir().
+    const slugCaixa = caixa.ehPedidoDaCaixa(req);
+    if (slugCaixa && !(p.startsWith('/api/') && caixa.rotaPermitida(p))) {
+      return H.erroJson(res, 403, `A rota ${p.slice(0, 120)} não está liberada para agentes. Só as rotas que a frente liberou com caixa.permitir() respondem pela caixa.`);
+    }
+
+    // CSRF: toda escrita exige Origin igual à do próprio Web (a caixa não vem de navegador).
+    if (ehMutacao(req) && !slugCaixa && !origemOk(req)) {
       const visto = req.headers.origin ? String(req.headers.origin).slice(0, 80) : '(sem Origin)';
       log('aviso', `Pedido ${m} ${p} recusado: Origin ${visto} não é a deste Web (${H.origemPropria(req, config.proxiesConfiaveis)}).`);
       const motivo = `Pedido recusado: a origem ${visto} não é a deste site. Abra o DG Claw pelo endereço normal e tente de novo.`;
@@ -640,7 +685,7 @@ function criarServidor(opcoes) {
       return res.end();
     }
 
-    const sessao = auth.sessaoDoPedido(req);
+    const sessao = slugCaixa ? { usuario: 'agente:' + slugCaixa, via: 'caixa', agente: slugCaixa } : auth.sessaoDoPedido(req);
 
     if (p.startsWith('/api/')) {
       if (!sessao) return H.erroJson(res, 401, 'Você precisa entrar para usar a API. Faça login em /login.');
@@ -664,6 +709,24 @@ function criarServidor(opcoes) {
       return res.end();
     }
 
+    if (p === '/lembretes' && (m === 'GET' || m === 'HEAD')) {
+      if (!sessao) return semSessaoPagina(req, res, url);
+      if (!servirArquivo(req, res, path.join(config.publicDir, 'lembretes.html'), 'no-store')) {
+        log('erro', `A tela de lembretes não está instalada: falta ${path.join(config.publicDir, 'lembretes.html')}.`);
+        H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela de lembretes não foi encontrado no servidor. Reinstale o DG Claw Web.');
+      }
+      return undefined;
+    }
+
+    if ((p === '/avisos' || p === '/avisos/') && (m === 'GET' || m === 'HEAD')) {
+      if (!sessao) return semSessaoPagina(req, res, url);
+      if (!servirArquivo(req, res, path.join(config.publicDir, 'avisos.html'), 'no-store')) {
+        log('erro', `A tela do quadro de avisos não está instalada: falta ${path.join(config.publicDir, 'avisos.html')}.`);
+        H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela do quadro de avisos não foi encontrado no servidor. Reinstale o DG Claw Web.');
+      }
+      return undefined;
+    }
+
     const pa = /^\/a\/([^/]+)\/?$/.exec(p);
     if (pa && (m === 'GET' || m === 'HEAD')) {
       if (!sessao) return semSessaoPagina(req, res, url);
@@ -675,6 +738,15 @@ function criarServidor(opcoes) {
       if (!servirArquivo(req, res, path.join(config.publicDir, 'conversa.html'), 'no-store')) {
         log('erro', `A tela da conversa não está instalada: falta ${path.join(config.publicDir, 'conversa.html')}.`);
         H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela da conversa não foi encontrado no servidor. Reinstale o DG Claw Web.');
+      }
+      return undefined;
+    }
+
+    if ((p === '/mesa' || p === '/mesa/') && (m === 'GET' || m === 'HEAD')) {
+      if (!sessao) return semSessaoPagina(req, res, url);
+      if (!servirArquivo(req, res, path.join(config.publicDir, 'mesa.html'), 'no-store')) {
+        log('erro', `A tela da Mesa não está instalada: falta ${path.join(config.publicDir, 'mesa.html')}.`);
+        H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela da Mesa de tarefas não foi encontrado no servidor. Reinstale o DG Claw Web.');
       }
       return undefined;
     }
@@ -721,17 +793,20 @@ function criarServidor(opcoes) {
   });
 
   return {
-    servidor, config, registro, auth, midia, conversa, log,
+    servidor, config, registro, auth, midia, conversa, log, caixa, push, lembretes, avisos,
     ouvir(porta, host) {
       return new Promise((resolve, reject) => {
         servidor.once('error', reject);
         servidor.listen(porta == null ? config.porta : porta, host || config.host, () => {
           servidor.off('error', reject);
+          caixa.iniciar();
+          lembretes.iniciar();
+          avisos.iniciar();
           resolve(servidor.address());
         });
       });
     },
-    fechar() { return new Promise((resolve) => { proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
+    fechar() { return new Promise((resolve) => { caixa.parar(); lembretes.parar(); avisos.parar(); proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
   };
 }
 

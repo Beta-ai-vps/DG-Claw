@@ -17,7 +17,9 @@ function chaveAtividade(a) {
 }
 
 /**
- * Abre o stream. `fontes` = { thread(agente), atividade(agente), versaoJs }.
+ * Abre o stream. `fontes` = { thread(agente), atividade(agente), versaoJs, foco?(agente) }.
+ * `foco` é opcional: devolve a lista do modo foco; o evento `foco` sai no primeiro tique e
+ * quando `lista.versao` muda. Se a fonte lançar, sai {agente, lista:null, erro} e o stream segue.
  * Cada conexão tem o seu relógio; o custo de cada tique é um stat do arquivo e um
  * cache de 2 s do runner, então não precisa de vigia compartilhado.
  */
@@ -35,6 +37,8 @@ function abrirStream({ req, res, agente, since, fontes, log, tickMs }) {
   const visto = new Map();
   let versaoVista = -1;
   let chaveAtiv = null;
+  let versaoFoco = null;
+  let erroFoco = null;
   let ultimoEnvio = Date.now();
   let ocupado = false;
   let fechado = false;
@@ -76,6 +80,24 @@ function abrirStream({ req, res, agente, since, fontes, log, tickMs }) {
         chaveAtiv = k;
         sse(res, 'atividade', { agentes: { [agente.slug]: ativ }, agora: Date.now() / 1000 });
         ultimoEnvio = Date.now();
+      }
+      if (fontes.foco) {
+        try {
+          const l = await fontes.foco(agente);
+          erroFoco = null;
+          if (l.versao !== versaoFoco) {
+            versaoFoco = l.versao;
+            sse(res, 'foco', { agente: agente.slug, lista: l });
+            ultimoEnvio = Date.now();
+          }
+        } catch (e) {
+          if (e.message !== erroFoco) {
+            erroFoco = e.message; versaoFoco = null;
+            log('aviso', `Stream de ${agente.slug}: não consegui ler a lista de foco (${e.message}).`);
+            sse(res, 'foco', { agente: agente.slug, lista: null, erro: e.message });
+            ultimoEnvio = Date.now();
+          }
+        }
       }
       if (Date.now() - ultimoEnvio >= PING_MS) {
         res.write(': ping\n\n');

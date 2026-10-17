@@ -212,6 +212,29 @@ rm -f "$LIB/agentes/duda/home/.dgclaw/panel/config.json"
 dgclaw agente reparar duda >"$TMP/o.txt" 2>&1
 igual "dono com aspas e cifrao sobrevive pelo config.sh antigo" "O'Neil \$USER" "$(bash -c ". '$CFG2'; printf '%s' \"\$DGCLAW_OWNER\"")"
 
+echo "reparar: garante o gancho do Modo foco no runner.json"
+GANCHO="node /opt/dgclaw/app/scripts/foco-hook.mjs"
+igual "agente novo ja nasce com o gancho" "1" "$(jq --arg g "$GANCHO" '[.config.promptHooks[] | select(. == $g)] | length' "$RJ")"
+jq '.config.promptHooks = ["echo meu-gancho"]' "$RJ" >"$TMP/rj.json" && cat "$TMP/rj.json" >"$RJ"
+dgclaw agente reparar cida >"$TMP/o.txt" 2>&1
+igual "reparar sem o gancho sai com 0" "0" "$?"
+igual "acrescenta o gancho que faltava" "1" "$(jq --arg g "$GANCHO" '[.config.promptHooks[] | select(. == $g)] | length' "$RJ")"
+igual "preserva os outros promptHooks" "echo meu-gancho" "$(jq -r '.config.promptHooks[0]' "$RJ")"
+igual "preserva o resto do runner.json" "codex-cli" "$(jq -r .config.provider "$RJ")"
+afirma "diz o que fez e como reiniciar" grep -q "dgclaw agente reiniciar cida" "$TMP/o.txt"
+igual "runner.json segue 444" "444" "$(stat -c %a "$RJ")"
+cp "$RJ" "$TMP/rj-antes.json"
+dgclaw agente reparar cida >"$TMP/o.txt" 2>&1
+igual "reparar de novo sai com 0" "0" "$?"
+igual "idempotente: o arquivo nao muda" "$(cat "$TMP/rj-antes.json")" "$(cat "$RJ")"
+nega "idempotente: nao repete a mensagem" grep -q "gancho do Modo foco acrescentado" "$TMP/o.txt"
+printf '{quebrado' >"$RJ"
+dgclaw agente reparar cida >"$TMP/o.txt" 2>&1
+nega "runner.json quebrado nao sai com 0" test "$?" = 0
+afirma "explica o que, onde e o que fazer" grep -q "runner.json.*nao mexi nele" "$TMP/o.txt"
+igual "runner.json quebrado nao foi sobrescrito" "{quebrado" "$(cat "$RJ")"
+cp "$TMP/rj-antes.json" "$RJ"
+
 echo "reparar: .dgclaw trocada por link e recusada"
 H3="$LIB/agentes/cida/home"
 mkdir -p "$TMP/fora"

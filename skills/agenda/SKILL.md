@@ -1,6 +1,6 @@
 ---
 name: agenda
-description: Marca, lista e desmarca compromissos de verdade do agente NA MAQUINA onde ele mora (timers do systemd, via persona-cron-mgr.py), pra ele agir sozinho na hora certa mesmo com ninguem falando com ele. Use SEMPRE que o dono pedir pra agendar, marcar, lembrar ou repetir algo num horario ("todo dia as 9h me manda o resumo", "cria um cron", "cria um agendamento", "me lembra toda segunda", "roda isso de hora em hora", "quais crons voce tem", "cancela aquele agendamento"). Vale tambem quando a transcricao de audio trouxer CHROME, CROME, CRONO, CROM ou CRONI num pedido de horario, que e quase sempre a palavra CRON mal ouvida. NUNCA use o agendamento da sessao do Claude Code pra isso: aquilo morre com a sessao, isto fica na maquina.
+description: Marca, lista e desmarca compromissos de verdade do agente NA MAQUINA onde ele mora (timers do systemd, via persona-cron-mgr.py), pra ele agir sozinho na hora certa mesmo com ninguem falando com ele. Use SEMPRE que o dono pedir pra agendar, marcar ou repetir um trabalho DO AGENTE num horario ("todo dia as 9h me manda o resumo", "cria um cron", "cria um agendamento", "roda isso de hora em hora", "quais crons voce tem", "cancela aquele agendamento"). Vale tambem quando a transcricao de audio trouxer CHROME, CROME, CRONO, CROM ou CRONI num pedido de horario, que e quase sempre a palavra CRON mal ouvida. Pedido para AVISAR o dono ("me lembra...", "me avisa as 15h") nao e rotina: use a skill lembretes, que insiste ate ele confirmar. NUNCA use o agendamento da sessao do Claude Code pra isso: aquilo morre com a sessao, isto fica na maquina.
 user-invocable: true
 ---
 
@@ -97,11 +97,14 @@ agente, não como root.
   - `--calendar 'Mon *-*-* 18:00:00'` → toda segunda, 18h
   - `--calendar '*-*-01 10:00:00'` → todo dia 1º do mês, 10h
   - `--every 30min` (ou `2h`, `1d`) → de tempos em tempos, contado a partir da última vez
-  - `--calendar '2026-10-17 14:32:00'` → **uma vez só**, nesse dia e hora. É o formato do
-    lembrete ("me lembra daqui a 2 minutos", "amanhã às 10h me avisa"): rode `date`, some o
-    prazo e escreva a data COMPLETA. Nunca use `*-*-*` para lembrete (vira todo dia) nem
-    `--every` (repete). No `--poke`, acrescente ao final: "Depois de avisar, remova esta rotina
-    com remove --name <apelido>.", para o lembrete não ficar ocupando uma das 10 vagas.
+  - `--calendar '2026-10-17 14:32:00'` → **uma vez só**, nesse dia e hora. Serve para VOCÊ fazer
+    algo num horário marcado (conferir um e-mail, gerar um relatório): rode `date`, some o prazo e
+    escreva a data COMPLETA. Nunca use `*-*-*` aqui (vira todo dia) nem `--every` (repete). No
+    `--poke`, acrescente ao final: "Depois de fazer, remova esta rotina com remove --name
+    <apelido>.", para ela não ficar ocupando uma das 10 vagas.
+  - **Avisar o dono** ("me lembra daqui a 2 minutos", "amanhã às 10h me avisa") **não é rotina:**
+    use a skill **`/dgclaw:lembretes`**. Ela aparece na tela e no celular dele e insiste até ele
+    confirmar. O timer de uma vez só desta skill avisa uma vez e some.
 - O fuso é o da máquina (`DGCLAW_TZ`), já configurado. Não faça conta de fuso na mão.
 
 **Rode sempre com `--dry-run` primeiro** e mostre ao dono o que vai ser criado, em português:

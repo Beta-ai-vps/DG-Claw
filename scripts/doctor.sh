@@ -585,12 +585,39 @@ if [ -d "$EXTDIR" ]; then
 fi
 [ "$NEXT" = "0" ] && I "nenhuma extensao instalada (o agente roda inteiro assim; o DG Alive acrescenta a vida emocional)"
 
+# Mesa de tarefas LOCAL (DG Claw Web): o agente usa dgclaw-mesa, que fala com o Web pela caixa
+# (dgclaw-api). Nao depende do DG Telegram nem de variavel nenhuma.
+for MESA_CMD in dgclaw-mesa dgclaw-api; do
+    if command -v "$MESA_CMD" >/dev/null 2>&1 || [ -x "$PLUGIN/bin/$MESA_CMD" ] || [ -x "/opt/dgclaw/app/bin/$MESA_CMD" ]; then
+        P "mesa de tarefas local: o comando $MESA_CMD existe"
+    elif [ "$MESA_CMD" = "dgclaw-mesa" ]; then
+        W "mesa de tarefas local: o comando dgclaw-mesa nao foi encontrado -> atualize o DG Claw (a imagem do agente traz o comando) e rode 'sudo dgclaw agente reparar $SLUG'"
+    else
+        W "mesa de tarefas local: o comando dgclaw-api (a caixa do agente) nao foi encontrado -> atualize o DG Claw e rode 'sudo dgclaw agente reparar $SLUG'; sem ele o agente nao fala com o Web"
+    fi
+done
+if [ -f "$WS/CLAUDE.md" ]; then
+    # So a secao nova conta: a antiga tinha o titulo com "(so se o seu ambiente tiver DGCLAW_MESA_URL)".
+    if grep -q '^## Mesa de tarefas *$' "$WS/CLAUDE.md"; then
+        P "mesa de tarefas local: o CLAUDE.md tem a secao Mesa de tarefas"
+    else
+        W "o CLAUDE.md nao tem a secao Mesa de tarefas atual: o agente nao sabe quando criar e atualizar tarefas na mesa -> rode com --fix"
+        if [ "$FIX" = "1" ] && grep -q '^## Mesa de tarefas *$' "$PLUGIN/templates/CLAUDE.md.tmpl" 2>/dev/null; then
+            [ -f "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-mesa" ] || cp -p "$WS/CLAUDE.md" "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-mesa"
+            { echo; awk '/^## /{f=($0 ~ /^## Mesa de tarefas *$/)} f' "$PLUGIN/templates/CLAUDE.md.tmpl" \
+                | sed "s/{{DONO}}/${DGCLAW_OWNER:-dono}/g"; } >> "$WS/CLAUDE.md"
+            [ "$WS_OWNER" != "root" ] && chown "$WS_OWNER:" "$WS/CLAUDE.md" 2>/dev/null
+            F "secao Mesa de tarefas acrescentada no fim do CLAUDE.md (backup ao lado; vale na proxima leitura)"
+        fi
+    fi
+fi
+
 # Mesa de tarefas do DG Telegram (opcional, 05/10/2026): so existe pra quem tem o app, entao
 # ficar sem ela e escolha, nao falta. A chave nunca e impressa: entra no curl pela entrada
 # padrao (nem a lista de processos mostra) e so o codigo HTTP volta pra tela.
 MESA_URL="${DGCLAW_MESA_URL:-}"; MESA_KEY="${DGCLAW_MESA_KEY:-}"
 if [ -z "$MESA_URL" ] && [ -z "$MESA_KEY" ]; then
-    I "mesa de tarefas: desligada (sem DGCLAW_MESA_URL no config; e opcional, so pra quem tem o DG Telegram)"
+    I "integracao antiga com o DG Telegram: desligada (sem DGCLAW_MESA_URL no config). E opcional e a mesa de tarefas local nao depende dela"
 elif [ -z "$MESA_URL" ] || [ -z "$MESA_KEY" ]; then
     if [ -z "$MESA_URL" ]; then MESA_FALTA="DGCLAW_MESA_URL"; else MESA_FALTA="DGCLAW_MESA_KEY"; fi
     B "mesa de tarefas pela metade: falta $MESA_FALTA no config.sh, e sem as duas o agente nao usa a mesa -> docs/MESA-DE-TAREFAS.md"
@@ -605,34 +632,10 @@ else
         000|"") W "mesa de tarefas: ninguem respondeu em $MESA_URL em 8 s (DG Telegram fora do ar, ou endereco errado)" ;;
         *) W "mesa de tarefas: GET $MESA_URL deu HTTP $MESA_HTTP (o esperado e 200)" ;;
     esac
-    # Quadro de avisos da equipe: mesma chave e mesmo servidor da mesa (a base e a URL da mesa
-    # sem o /api/v1/tarefas). So o codigo HTTP volta; o texto dos avisos nao e impresso aqui.
-    AVISOS_URL="${MESA_URL%/}"; AVISOS_URL="${AVISOS_URL%/api/v1/tarefas}/api/v1/avisos"
-    AV_HTTP=$(printf 'Authorization: Bearer %s\n' "$MESA_KEY" \
-        | curl -s --noproxy '*' -m 8 -o /dev/null -w '%{http_code}' -H @- "$AVISOS_URL/injecao?formato=texto" 2>/dev/null)
-    case "$AV_HTTP" in
-        200) P "quadro de avisos da equipe respondendo (GET $AVISOS_URL/injecao deu 200)" ;;
-        404) W "quadro de avisos: $AVISOS_URL/injecao deu 404 (o DG Telegram desta maquina ainda nao tem o quadro?)" ;;
-        000|"") W "quadro de avisos: ninguem respondeu em $AVISOS_URL em 8 s" ;;
-        *) W "quadro de avisos: GET $AVISOS_URL/injecao deu HTTP $AV_HTTP (o esperado e 200; o motivo fica em .dgclaw/logs/avisos.log)" ;;
-    esac
-    # O hook que traz os avisos: vem do hooks.json do plugin quando o plugin esta habilitado no
-    # Claude, ou do .claude/settings.json do workspace (instalacao a mao). Sem nenhum dos dois, o
-    # agente posta mas nao le o que os outros postam.
-    if grep -qs '"dgclaw@[^"]*": *true' "$CFGDIR/settings.json" && grep -qs 'avisos' "$PLUGIN/hooks/hooks.json"; then
-        P "o hook do quadro de avisos esta ligado (hooks.json do plugin)"
-    elif grep -qs 'avisos.py' "$WS/.claude/settings.json"; then
-        P "o hook do quadro de avisos esta ligado (.claude/settings.json do workspace)"
-    else
-        W "o hook do quadro de avisos nao esta ligado: o agente posta, mas nao recebe o que os outros postam -> docs/QUADRO-DE-AVISOS.md, secao Ligar o hook"
-    fi
-    if [ -s "$WS/.dgclaw/logs/avisos.log" ]; then
-        I "  ultima linha do log do quadro: $(tail -1 "$WS/.dgclaw/logs/avisos.log" | cut -c1-160)"
-    fi
     # Mesa ligada mas CLAUDE.md de antes da regra: o agente tem a chave e nao sabe quando usar.
-    for SECAO in "Mesa de tarefas" "Quadro de avisos da equipe"; do
-        [ -f "$WS/CLAUDE.md" ] || break
-        grep -q "^## $SECAO" "$WS/CLAUDE.md" && continue
+    # (O quadro de avisos tem bloco proprio logo abaixo: ele nao depende da mesa.)
+    SECAO="Mesa de tarefas"
+    while [ -f "$WS/CLAUDE.md" ] && ! grep -q "^## $SECAO" "$WS/CLAUDE.md"; do
         W "a mesa esta configurada, mas o CLAUDE.md nao tem a secao $SECAO: o agente nao sabe quando usar -> rode com --fix"
         if [ "$FIX" = "1" ] && grep -q "^## $SECAO" "$PLUGIN/templates/CLAUDE.md.tmpl" 2>/dev/null; then
             [ -f "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-mesa" ] || cp -p "$WS/CLAUDE.md" "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-mesa"
@@ -641,7 +644,57 @@ else
             [ "$WS_OWNER" != "root" ] && chown "$WS_OWNER:" "$WS/CLAUDE.md" 2>/dev/null
             F "secao $SECAO acrescentada no fim do CLAUDE.md (backup ao lado; vale na proxima leitura)"
         fi
+        break
     done
+fi
+
+# Quadro de avisos da equipe (17/10/2026): vem de fabrica e nao depende da mesa nem do DG Telegram.
+# O DG Claw Web grava o retrato local ~/.dgclaw/retratos/avisos.json e o hook le esse arquivo.
+AV_RETRATO="$WS/.dgclaw/retratos/avisos.json"
+AV_LOG="$WS/.dgclaw/logs/avisos.log"
+# O hook que traz os avisos: vem do hooks.json do plugin quando o plugin esta habilitado no
+# Claude, ou do .claude/settings.json do workspace (instalacao a mao). Sem nenhum dos dois, o
+# agente posta mas nao le o que os outros postam.
+if grep -qs '"dgclaw@[^"]*": *true' "$CFGDIR/settings.json" && grep -qs 'avisos' "$PLUGIN/hooks/hooks.json"; then
+    P "o hook do quadro de avisos esta ligado (hooks.json do plugin)"
+elif grep -qs 'avisos.py' "$WS/.claude/settings.json"; then
+    P "o hook do quadro de avisos esta ligado (.claude/settings.json do workspace)"
+else
+    W "o hook do quadro de avisos nao esta ligado: o agente posta, mas nao recebe o que os outros postam -> docs/QUADRO-DE-AVISOS.md, secao A leitura (hook)"
+fi
+if [ "${DGCLAW_AVISOS:-}" = "off" ]; then
+    I "quadro de avisos desligado neste agente (DGCLAW_AVISOS=off): o hook nao injeta nada"
+fi
+if [ ! -e "$AV_RETRATO" ]; then
+    I "o retrato do quadro ainda nao existe ($AV_RETRATO): o Web grava no primeiro aviso, ou ao reparar o agente"
+elif AV_INFO=$(python3 - "$AV_RETRATO" <<'PY' 2>&1
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception as e:
+    print(f"ilegivel ({e})"); sys.exit(1)
+if not isinstance(d, dict) or d.get("versao") != 1:
+    print(f"versao {d.get('versao') if isinstance(d, dict) else '?'} (o hook le a 1)"); sys.exit(1)
+print(f"{len(d.get('avisos', []))} aviso(s) para este agente, cursor {d.get('cursor')}")
+PY
+); then
+    AV_QUANDO=$(date -r "$AV_RETRATO" '+%d/%m/%Y %H:%M' 2>/dev/null || echo "?")
+    P "retrato do quadro de avisos valido: $AV_INFO (gravado em $AV_QUANDO)"
+else
+    W "retrato do quadro de avisos em $AV_RETRATO: $AV_INFO; o hook nao injeta nada ate o Web regravar -> reinicie o DG Claw Web ou rode sudo dgclaw agente reparar $SLUG"
+fi
+if [ -s "$AV_LOG" ]; then
+    I "  ultima linha do log do quadro: $(tail -1 "$AV_LOG" | cut -c1-160)"
+fi
+if [ -f "$WS/CLAUDE.md" ] && ! grep -q "^## Quadro de avisos da equipe" "$WS/CLAUDE.md"; then
+    W "o CLAUDE.md nao tem a secao Quadro de avisos da equipe: o agente nao sabe quando postar -> rode com --fix"
+    if [ "$FIX" = "1" ] && grep -q "^## Quadro de avisos da equipe" "$PLUGIN/templates/CLAUDE.md.tmpl" 2>/dev/null; then
+        [ -f "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-avisos" ] || cp -p "$WS/CLAUDE.md" "$WS/CLAUDE.md.bak-$(date +%Y%m%d)-avisos"
+        { echo; awk '/^## /{f=(index($0, "## Quadro de avisos da equipe") == 1)} f' "$PLUGIN/templates/CLAUDE.md.tmpl" \
+            | sed "s/{{DONO}}/${DGCLAW_OWNER:-dono}/g"; } >> "$WS/CLAUDE.md"
+        [ "$WS_OWNER" != "root" ] && chown "$WS_OWNER:" "$WS/CLAUDE.md" 2>/dev/null
+        F "secao Quadro de avisos da equipe acrescentada no fim do CLAUDE.md (backup ao lado; vale na proxima leitura)"
+    fi
 fi
 
 # Instalacao da era anterior a fusao: enquanto as duas camadas existirem juntas, rotina
