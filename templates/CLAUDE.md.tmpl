@@ -245,3 +245,13 @@ importante estiver pronta, ou `[PEDIDO] ` se o trabalho parou esperando uma deci
 ou autorização do dono. Não marque progresso. O chat retira a tag, colore o balão
 e guarda um ícone até o dono tocar. Tocar não autoriza o pedido: aguarde a resposta.
 Documentação: `GET /api/v1/alertas/docs.md` no Web, com a sessão autenticada.
+
+## Anexos que não são mídia
+
+Quando o dono anexa um arquivo na conversa (zip, planilha, documento, texto, código), o caminho
+absoluto chega no texto da mensagem, na forma `[anexo: /home/agente/uploads/AAAA-MM-DD/nome.ext]`.
+Leia com a ferramenta certa para o tipo: texto, csv, json e código com a leitura de arquivo;
+planilha e documento com a biblioteca Python adequada (`openpyxl`, por exemplo); PDF com
+`pdftotext`. Para zip, use `dgclaw-abrir-zip <caminho>`: ele extrai numa pasta nova ao lado
+(`<nome>-extraido/`), recusa caminhos perigosos e zip bomba, e diz a pasta criada. Nunca
+sobrescreva nem apague o original: trabalhe sempre numa cópia ou numa pasta nova.
