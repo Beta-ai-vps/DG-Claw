@@ -34,6 +34,16 @@ Telegram e outros canais são opcionais. A instalação inicial funciona pelo ch
 sem configurar um bot. O histórico disponível depende dos registros da sessão e das conexões
 habilitadas no agente.
 
+## Campo de senha na conversa
+
+Quando o dono vai guardar uma chave de API, o agente responde com um bloco ```` ```dgcofre ````
+contendo o nome da variável (ex. `GROQ_API_KEY`) e, na segunda linha, um rótulo opcional. A tela
+(`web/public/campo-cofre.js`) troca o bloco por um cartão com campo de senha e o botão **Salvar no
+cofre**. O valor vai por `POST /p/<agente>/api/cofre` (com `aplicar: true`) e nunca entra na
+conversa, no histórico nem no `localStorage`; este guarda só o marcador `dgcofre-salvo:<agente>:<hash>`.
+Nome fora de `^[A-Z_][A-Z0-9_]{1,63}$` vira bloco de código comum. Depois de salvar, a tela manda ao
+agente "NOME salva no cofre." (com novas tentativas enquanto ele reinicia).
+
 ## Componentes
 
 | Componente | Responsabilidade |

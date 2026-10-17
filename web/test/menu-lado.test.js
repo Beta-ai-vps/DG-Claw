@@ -15,9 +15,9 @@ test('conversa.html carrega o menu novo e não tem mais o link avulso do painel'
   assert.doesNotMatch(h, /gmSecPainel/);
 });
 
-test('sw.js guarda os arquivos novos e está na v13', () => {
+test('sw.js guarda os arquivos novos e está na v14', () => {
   const s = pub('sw.js');
-  assert.match(s, /dgclaw-estaticos-v13/);
+  assert.match(s, /dgclaw-estaticos-v14/);
   assert.match(s, /'\/menu-lado\.js'/);
   assert.match(s, /'\/menu-lado\.css'/);
 });

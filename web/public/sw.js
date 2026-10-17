@@ -5,10 +5,11 @@
    abrir rápido e para o app instalado ter o que mostrar. NUNCA mexe em /api/,
    /p/, /login, /sair nem nas páginas de conversa (/a/...): conteúdo da conversa,
    painéis e sessão passam direto para a rede, sem cópia nenhuma. */
-const VERSAO = 'dgclaw-estaticos-v13';
+const VERSAO = 'dgclaw-estaticos-v14';
 const ESTATICOS = [
   '/conversa.css', '/chat.css', '/conversa.js', '/menu-lado.js', '/menu-lado.css', '/login-cartao.js', '/trilha-tela.js', '/rolagem.js', '/tour.js',
   '/onboarding.js', '/onboarding.css',
+  '/campo-cofre.js', '/campo-cofre.css',
   '/login.css', '/login.js',
   '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
