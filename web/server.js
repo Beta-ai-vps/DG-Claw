@@ -33,6 +33,7 @@ const { criarCaixaAgente, quemChamou } = require('./lib/caixa-agente');
 const { criarPush } = require('./lib/push');
 const { criarLembretes } = require('./lib/lembretes');
 const { criarMesa } = require('./lib/mesa');
+const { criarAvisos } = require('./lib/avisos');
 
 const METODOS_QUE_ESCREVEM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const TIPOS_ESTATICOS = {
@@ -98,6 +99,8 @@ function criarServidor(opcoes) {
   const mesa = criarMesa({ arquivo: path.join(config.dataDir, 'mesa', 'tarefas.json'), registro, runner, log, agora: opcoes.agora, tz: config.tz, avisarDono: (aviso) => push.enviar(aviso) });
   // O agente fala com a Mesa pelo dgclaw-mesa, que passa pela caixa: a rota precisa estar liberada.
   caixa.permitir('/api/v1/tarefas');
+  const avisos = criarAvisos({ config, registro, runner, caixa, log, agora: opcoes.agora });
+  caixa.permitir('/api/v1/avisos');
 
   let versaoJsCache = { ts: 0, valor: '0' };
   /** Versão da tela: mtime de conversa.js. A tela compara com a que carregou e se recarrega sozinha. */
@@ -386,6 +389,9 @@ function criarServidor(opcoes) {
     if (p === '/api/v1/push/docs.md' && m === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'AVISOS-NO-APARELHO.md'), 'utf8'));
+    }
+    if (p === '/api/v1/avisos' || p.startsWith('/api/v1/avisos/')) {
+      if (await avisos.tratar(req, res, url, sessao)) return undefined;
     }
     if (p === '/api/v1/push' || p.startsWith('/api/v1/push/')) {
       if (await push.rotas(req, res, url, sessao)) return undefined;
@@ -712,6 +718,15 @@ function criarServidor(opcoes) {
       return undefined;
     }
 
+    if ((p === '/avisos' || p === '/avisos/') && (m === 'GET' || m === 'HEAD')) {
+      if (!sessao) return semSessaoPagina(req, res, url);
+      if (!servirArquivo(req, res, path.join(config.publicDir, 'avisos.html'), 'no-store')) {
+        log('erro', `A tela do quadro de avisos não está instalada: falta ${path.join(config.publicDir, 'avisos.html')}.`);
+        H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela do quadro de avisos não foi encontrado no servidor. Reinstale o DG Claw Web.');
+      }
+      return undefined;
+    }
+
     const pa = /^\/a\/([^/]+)\/?$/.exec(p);
     if (pa && (m === 'GET' || m === 'HEAD')) {
       if (!sessao) return semSessaoPagina(req, res, url);
@@ -778,7 +793,7 @@ function criarServidor(opcoes) {
   });
 
   return {
-    servidor, config, registro, auth, midia, conversa, log, caixa, push, lembretes,
+    servidor, config, registro, auth, midia, conversa, log, caixa, push, lembretes, avisos,
     ouvir(porta, host) {
       return new Promise((resolve, reject) => {
         servidor.once('error', reject);
@@ -786,11 +801,12 @@ function criarServidor(opcoes) {
           servidor.off('error', reject);
           caixa.iniciar();
           lembretes.iniciar();
+          avisos.iniciar();
           resolve(servidor.address());
         });
       });
     },
-    fechar() { return new Promise((resolve) => { caixa.parar(); lembretes.parar(); proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
+    fechar() { return new Promise((resolve) => { caixa.parar(); lembretes.parar(); avisos.parar(); proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
   };
 }
 
