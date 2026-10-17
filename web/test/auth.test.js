@@ -94,12 +94,13 @@ test('login: modo trancado (sem hash) ninguém entra e a página explica', async
     assert.equal(form.status, 302); assert.match(form.headers.location, /^\/login\?erro=bloqueado/);
     const r = await t.c.post('/login', { json: { usuario: 'dono', senha: 'qualquer' } });
     assert.equal(r.status, 403);
-    assert.match(r.json.erro, /trancado/);
-    assert.match(r.json.erro, /gerador de hash/);
+    assert.match(r.json.erro, /ainda não tem senha/);
+    assert.match(r.json.erro, /primeiro acesso/);
     const estado = await t.c.get('/api/login-estado');
     assert.equal(estado.json.trancado, true);
-    assert.match(estado.json.mensagem, /instalador/);
-    assert.match(t.log.texto(), /TRANCADO/);
+    assert.equal(estado.json.sem_senha, true);
+    assert.match(estado.json.mensagem, /sudo dgclaw primeiro-acesso/);
+    assert.match(t.log.texto(), /primeiro acesso/);
     assert.equal((await t.c.get('/api/v1/eu')).status, 401);
   } finally { await t.fechar(); }
 });

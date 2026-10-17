@@ -15,6 +15,7 @@ const MAX_SESSOES = 200;
 // scrypt com N alto pode usar centenas de MB por chamada: no máximo 2 contas ao mesmo tempo,
 // para uma enxurrada de POST /login não derrubar a máquina por falta de memória.
 const SCRYPT_SIMULTANEOS = 2;
+const SCRYPT_NOVO = { N: 16384, r: 8, p: 1 }; // igual ao panel/lib/auth.js
 
 const sha256 = (v) => crypto.createHash('sha256').update(v).digest();
 const sha256hex = (v) => crypto.createHash('sha256').update(v).digest('hex');
@@ -57,14 +58,25 @@ function scrypt(senha, h) {
 function criarAuth({ config, log, agora }) {
   const relogio = agora || (() => Date.now());
   const usuario = String(config.env.DGCLAW_PANEL_USER || '').trim();
-  const parsed = parseHash(config.env.DGCLAW_PANEL_PASSWORD_HASH);
-  const trancado = !usuario || !!parsed.erro;
+  const hashInicial = String(config.env.DGCLAW_PANEL_PASSWORD_HASH || '').trim();
+  // "sem senha ainda": o usuário existe e o hash está vazio (instalação sem senha, esperando o primeiro acesso).
+  let semSenha = !!usuario && !hashInicial;
+  let parsed = parseHash(hashInicial);
+  let trancado = !usuario || !!parsed.erro;
   let motivoTrancado = null;
+  function calculaMotivo() {
+    if (!trancado) return null;
+    if (!usuario) return 'Falta o usuário do painel (DGCLAW_PANEL_USER).';
+    if (semSenha) return 'Ainda não há senha cadastrada. Use o link de primeiro acesso.';
+    return `O hash da senha não vale: ${parsed.erro}.`;
+  }
   if (trancado) {
-    motivoTrancado = !usuario
-      ? 'Falta o usuário do painel (DGCLAW_PANEL_USER).'
-      : `O hash da senha não vale: ${parsed.erro}.`;
-    log('aviso', `Login TRANCADO: ${motivoTrancado} Rode o gerador de hash do instalador e coloque DGCLAW_PANEL_USER e DGCLAW_PANEL_PASSWORD_HASH no web.env. Ninguém consegue entrar até lá.`);
+    motivoTrancado = calculaMotivo();
+    if (semSenha) {
+      log('info', 'Painel sem senha ainda: aguardando o primeiro acesso pelo link (sudo dgclaw primeiro-acesso gera outro).');
+    } else {
+      log('aviso', `Login TRANCADO: ${motivoTrancado} Rode o gerador de hash do instalador e coloque DGCLAW_PANEL_USER e DGCLAW_PANEL_PASSWORD_HASH no web.env. Ninguém consegue entrar até lá.`);
+    }
   }
 
   // ── sessões (no disco só o sha256 do token) ──────────────────────────────
@@ -111,14 +123,37 @@ function criarAuth({ config, log, agora }) {
   }
 
   return {
-    trancado,
-    motivoTrancado,
+    get trancado() { return trancado; },
+    get motivoTrancado() { return motivoTrancado; },
+    get semSenha() { return semSenha; },
+    get usuario() { return usuario; },
     NOME_COOKIE,
     bloqueio,
 
+    /** Troca o hash em memória e destranca. Devolve { ok } ou { ok:false, erro }. */
+    definirHash(hashTexto) {
+      const novo = parseHash(hashTexto);
+      if (novo.erro) return { ok: false, erro: novo.erro };
+      parsed = novo; trancado = false; motivoTrancado = null; semSenha = false;
+      falhas.clear();
+      return { ok: true };
+    },
+
+    /** Gera "scrypt$N$r$p$sal$hash" (mesmo formato e parâmetros do panel/lib/auth.js). Respeita o limite de scrypt simultâneo. */
+    async gerarHash(senha) {
+      if (scryptEmCurso >= SCRYPT_SIMULTANEOS) { const e = new Error('Muitas senhas sendo processadas ao mesmo tempo. Tente de novo em alguns segundos.'); e.ocupado = true; throw e; }
+      const h = Object.assign({}, SCRYPT_NOVO, { sal: crypto.randomBytes(16) });
+      h.hash = { length: 32 };
+      scryptEmCurso++;
+      try {
+        const k = await scrypt(senha, h);
+        return `scrypt$${h.N}$${h.r}$${h.p}$${h.sal.toString('base64url')}$${k.toString('base64url')}`;
+      } finally { scryptEmCurso--; }
+    },
+
     /** Confere usuário e senha. Sempre gasta o scrypt (mesmo com usuário errado). { ok, trancado?, erro? } */
     async verificaSenha(usuarioInformado, senha, ip) {
-      if (trancado) return { ok: false, trancado: true, erro: `O login está trancado: ${motivoTrancado} Rode o gerador de hash do instalador.` };
+      if (trancado) return { ok: false, trancado: true, erro: semSenha ? `O login ainda não tem senha. ${motivoTrancado}` : `O login está trancado: ${motivoTrancado} Rode o gerador de hash do instalador.` };
       const b = ip ? bloqueio(ip) : { bloqueado: false };
       if (b.bloqueado) return { ok: false, limite: true, retryAfter: b.retryAfter, erro: `Muitas tentativas erradas. Tente de novo em ${Math.ceil(b.retryAfter / 60)} min.` };
       if (scryptEmCurso >= SCRYPT_SIMULTANEOS) {

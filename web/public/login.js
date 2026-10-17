@@ -34,4 +34,13 @@
     const u = q.get('usuario');
     if (u && u.length < 80) document.getElementById('usuario').value = u;
   }
+
+  /* Instalação sem senha ainda: avisa (em tom neutro, não de erro) para usar o link de primeiro acesso. */
+  fetch('/api/login-estado', { cache: 'no-store' }).then((r) => r.json()).then((j) => {
+    if (!j || !j.sem_senha) return;
+    const caixa = document.getElementById('erro');
+    caixa.textContent = j.mensagem || 'Use o link de primeiro acesso que apareceu no fim da instalação.';
+    caixa.style.background = '#e8f3ea'; caixa.style.color = '#25593a'; caixa.style.borderColor = '#bcdcc4';
+    caixa.hidden = false;
+  }).catch(() => { /* sem aviso, o login segue normal */ });
 })();

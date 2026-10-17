@@ -25,6 +25,7 @@ const { criarAlertas } = require('./lib/alertas');
 const { criarVoz } = require('./lib/voz');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
+const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
 
 const METODOS_QUE_ESCREVEM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const TIPOS_ESTATICOS = {
@@ -64,6 +65,7 @@ function criarServidor(opcoes) {
   const registro = criarRegistro({ caminho: config.agentesPath, log });
   const runner = criarRunner({ log, timeoutMs: opcoes.timeoutRunnerMs });
   const auth = criarAuth({ config, log, agora: opcoes.agora });
+  const primeiroAcesso = criarPrimeiroAcesso({ config, auth, log, agora: opcoes.agora });
   const midia = criarMidia({ dataDir: config.dataDir, log, registro, publicDir: config.publicDir });
   const leitor = criarLeitor({ log, tz: config.tz, canalTelegram: config.canalTelegram, midia });
   const leitorRollout = criarLeitorRollout({ log, tz: config.tz, midia });
@@ -193,6 +195,24 @@ function criarServidor(opcoes) {
     log('aviso', `Login recusado (ip ${ip}): usuário ou senha incorretos.`);
     if (json) return H.erroJson(res, 401, r.erro);
     return voltaAoLogin(res, 'credenciais', next, usuarioDigitado);
+  }
+
+  // ── primeiro acesso (link de uso único, sem sessão) ──────────────────────
+  async function postPrimeiroAcesso(req, res) {
+    const ip = H.ipDoPedido(req, config.proxiesConfiaveis);
+    let campos;
+    try {
+      const buf = await H.lerCorpo(req, 16 * 1024);
+      campos = JSON.parse(buf.toString('utf8') || '{}');
+    } catch (e) {
+      return H.erroJson(res, e.status || 400, 'Não entendi o pedido. Recarregue a página e tente de novo.');
+    }
+    const r = await primeiroAcesso.consumir(campos && typeof campos === 'object' ? campos : {}, ip, req);
+    const cab = { 'Cache-Control': 'no-store' };
+    if (r.cookie) cab['Set-Cookie'] = r.cookie;
+    if (r.status === 429 && r.corpo.retryAfter) cab['Retry-After'] = String(r.corpo.retryAfter);
+    if (r.status >= 400) return H.erroJson(res, r.status, r.corpo.erro, r.corpo.retryAfter ? { retryAfter: r.corpo.retryAfter } : undefined, cab);
+    return H.enviaJson(res, r.status, r.corpo, cab);
   }
 
   // ── API ──────────────────────────────────────────────────────────────────
@@ -539,7 +559,10 @@ function criarServidor(opcoes) {
       return H.enviaJson(res, 200, { ok: true, agentes: est.ok ? est.agentes.length : null, registro_ok: est.ok, login_trancado: auth.trancado });
     }
     if (p === '/api/login-estado' && m === 'GET') {
-      return H.enviaJson(res, 200, { ok: true, trancado: auth.trancado, mensagem: auth.trancado ? `O acesso está trancado: ${auth.motivoTrancado} Rode o gerador de hash do instalador e coloque o resultado no web.env.` : null });
+      if (auth.semSenha) {
+        return H.enviaJson(res, 200, { ok: true, trancado: auth.trancado, sem_senha: true, usuario: auth.usuario, mensagem: 'Use o link de primeiro acesso que apareceu no fim da instalação. Se perdeu, rode no servidor: sudo dgclaw primeiro-acesso' });
+      }
+      return H.enviaJson(res, 200, { ok: true, trancado: auth.trancado, sem_senha: false, mensagem: auth.trancado ? `O acesso está trancado: ${auth.motivoTrancado} Rode o gerador de hash do instalador e coloque o resultado no web.env.` : null });
     }
 
     if (!p.startsWith('/p/')) {
@@ -567,6 +590,14 @@ function criarServidor(opcoes) {
       return undefined;
     }
     if (p === '/login' && m === 'POST') return postLogin(req, res, url);
+    if (p === '/primeiro-acesso' && (m === 'GET' || m === 'HEAD')) {
+      if (!servirArquivo(req, res, path.join(config.publicDir, 'primeiro-acesso.html'), 'no-store')) {
+        log('erro', `A tela de primeiro acesso não está instalada: falta ${path.join(config.publicDir, 'primeiro-acesso.html')}.`);
+        H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela de primeiro acesso não foi encontrado no servidor. Reinstale o DG Claw Web.');
+      }
+      return undefined;
+    }
+    if (p === '/api/primeiro-acesso' && m === 'POST') return postPrimeiroAcesso(req, res);
     if (p === '/sair' && (m === 'GET' || m === 'POST')) {
       auth.encerra(req, res);
       res.writeHead(303, { Location: '/login', 'Set-Cookie': res.getHeader('Set-Cookie'), 'Cache-Control': 'no-store' });
@@ -616,7 +647,7 @@ function criarServidor(opcoes) {
       const arq = arquivoPublico(p);
       if (arq) {
         const ehHtml = arq.endsWith('.html');
-        const livre = path.basename(arq) === 'login.html';
+        const livre = ['login.html', 'primeiro-acesso.html'].includes(path.basename(arq));
         if (ehHtml && !livre && !sessao) return semSessaoPagina(req, res, url);
         if (servirArquivo(req, res, arq)) return undefined;
       }
