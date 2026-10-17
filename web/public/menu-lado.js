@@ -122,14 +122,16 @@
     caixa.innerHTML = ordem.map(a => itemAgente(a, ag.id)).join('');
   }
 
-  async function recarrega(ag) {
+  /* silencioso: nas buscas automáticas uma falha de rede passageira não troca a lista por um erro. */
+  async function recarrega(ag, silencioso) {
     try {
       const r = await fetch('/api/v1/agents', { cache: 'no-store' });
       const d = await r.json().catch(() => null);
       if (!r.ok || !d || d.ok === false) throw new Error((d && d.erro) || ('a API respondeu ' + r.status));
       pintaLista(ag, Array.isArray(d.agentes) ? d.agentes : [], null);
     } catch (e) {
-      pintaLista(ag, [], e.message);
+      if (silencioso) console.warn('menu-lado: não consegui atualizar a lista de agentes (mantive a anterior):', e.message);
+      else pintaLista(ag, [], e.message);
     }
   }
 
@@ -150,6 +152,10 @@
     }, true);
     if (Array.isArray(opcoes.agentes)) pintaLista(ag, opcoes.agentes, null);
     else recarrega(ag);
+    /* Agente criado ou apagado em outra aba aparece sem recarregar a página: a cada 30 s e quando a aba volta a ficar visível. */
+    const atualiza = () => { if (document.visibilityState === 'visible') recarrega(ag, true); };
+    document.addEventListener('visibilitychange', atualiza);
+    setInterval(atualiza, 30000);
 
     const painel = $('mlPainel'), links = linksPainel(ag);
     painel.innerHTML = links.map(l => `<a class="ml-tab" href="${esc(l.href)}">` +

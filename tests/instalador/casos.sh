@@ -312,3 +312,92 @@ caso_senha_nunca_e_impressa_nem_gravada_nem_em_argv() {
     afirma "so o hash foi gravado" grep -q "^DGCLAW_PANEL_PASSWORD_HASH='scrypt" "$RAIZ/etc/dgclaw/web.env"
     limpar_cenario
 }
+
+# --- versao do Ubuntu (so a checagem de versao roda quando ha os-release na raiz falsa) ---
+os_release() { # os_release <id> <versao>
+    mkdir -p "$RAIZ/etc"
+    printf 'ID=%s\nVERSION_ID="%s"\n' "$1" "$2" >"$RAIZ/etc/os-release"
+}
+
+caso_versao_ubuntu_24_passa_sem_aviso() {
+    novo_cenario
+    os_release ubuntu 24.04
+    afirma "instala no 24.04" instalacao_basica
+    afirma "mostra o sistema" tem "$SAIDA" "sistema: ubuntu 24.04"
+    nega "sem aviso de versao" tem "$SAIDA" "tem funcionado"
+    limpar_cenario
+}
+
+caso_versao_ubuntu_26_passa_com_aviso() {
+    novo_cenario
+    os_release ubuntu 26.04
+    afirma "instala no 26.04" instalacao_basica
+    afirma "avisa que o 26.04 tem funcionado" tem "$SAIDA" "O 26.04 tem funcionado"
+    limpar_cenario
+}
+
+caso_versao_ubuntu_25_10_falha() {
+    novo_cenario
+    os_release ubuntu 25.10
+    nega "o 25.10 e recusado" instalacao_basica
+    afirma "mensagem de versao" tem "$SAIDA" "este sistema e 'ubuntu 25.10'"
+    afirma "diz o que fazer" tem "$SAIDA" "O que fazer:"
+    limpar_cenario
+}
+
+caso_versao_debian_12_falha() {
+    novo_cenario
+    os_release debian 12
+    nega "o debian 12 e recusado" instalacao_basica
+    afirma "mensagem de versao" tem "$SAIDA" "este sistema e 'debian 12'"
+    limpar_cenario
+}
+
+caso_sem_slirp4netns_nem_passt_falha_explicando() {
+    novo_cenario
+    EXTRA_ENV=("DGCLAW_STUB_PASST=0")
+    nega "sem slirp4netns nem passt a instalacao falha" instalacao_basica
+    afirma "mensagem da rede dos agentes" tem "$SAIDA" "nem o pacote slirp4netns nem o passt"
+    limpar_cenario
+}
+
+# --- comando claude fora do PATH ---
+# PATH sem o stub do claude: copia dos outros stubs por link simbolico.
+esconder_claude() {
+    mkdir -p "$TMP/stubs-sem-claude"
+    local f
+    for f in "$AQUI"/stubs/*; do
+        [ "$(basename "$f")" = claude ] && continue
+        ln -s "$f" "$TMP/stubs-sem-claude/$(basename "$f")"
+    done
+    ENV_BASE=("${ENV_BASE[@]/PATH=*/PATH=$TMP/stubs-sem-claude:/usr/bin:/bin}")
+}
+
+caso_claude_fora_do_path_mas_em_local_bin_instala_e_avisa() {
+    novo_cenario
+    esconder_claude
+    mkdir -p "$RAIZ/root/.local/bin"
+    printf '#!/bin/sh\nexit 0\n' >"$RAIZ/root/.local/bin/claude"; chmod +x "$RAIZ/root/.local/bin/claude"
+    afirma "instala mesmo assim" instalacao_basica
+    afirma "diz onde achou" tem "$SAIDA" "Claude Code encontrado em $RAIZ/root/.local/bin"
+    afirma "ensina a linha do bashrc" tem "$SAIDA" ">> ~/.bashrc && source ~/.bashrc"
+    limpar_cenario
+}
+
+caso_claude_inexistente_com_provedor_claude_falha() {
+    novo_cenario
+    esconder_claude
+    nega "sem claude a instalacao falha" instalacao_basica
+    afirma "diz que nao encontrou o Claude Code" tem "$SAIDA" "o Claude Code nao foi encontrado"
+    afirma "aponta a pagina de instalacao" tem "$SAIDA" "https://code.claude.com/docs/en/setup"
+    afirma "ensina a linha do bashrc" tem "$SAIDA" ">> ~/.bashrc && source ~/.bashrc"
+    limpar_cenario
+}
+
+caso_claude_inexistente_com_provedor_codex_nao_exige() {
+    novo_cenario
+    esconder_claude
+    afirma "codex instala sem claude" instalar "$PAINEL_PW" --usuario maria --provedor codex
+    nega "nao reclama do claude" tem "$SAIDA" "o Claude Code nao foi encontrado"
+    limpar_cenario
+}

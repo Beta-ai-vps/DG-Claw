@@ -7,7 +7,8 @@
 #
 # Env:
 #   DGCLAW_WORKSPACE        (obrigatorio na pratica) — raiz do workspace da persona.
-#   DGCLAW_BUDGET_USD       (opcional, default 200)  — orcamento mensal em USD.
+#   DGCLAW_BUDGET_USD       (opcional, sem default) : orcamento mensal em USD. Vazio = sem
+#                               teto: os alertas de 50/75/90/100% nao rodam (o de execucao cara sim).
 #   DGCLAW_EXEC_ALERT_USD   (opcional, default 5)    — teto de 1 execucao isolada.
 #   DGCLAW_LOGS_DIR         (opcional)               — onde estao os *-tokens.jsonl.
 #                               Default: <ws>/.dgclaw/logs
@@ -32,7 +33,7 @@ if [ -n "$CONFIG" ] && [ -f "$CONFIG" ]; then
 fi
 
 WS="${DGCLAW_WORKSPACE:?cost-alerts: DGCLAW_WORKSPACE nao setado}"
-BUDGET="${DGCLAW_BUDGET_USD:-200}"
+BUDGET="${DGCLAW_BUDGET_USD:-}"
 EXEC_ALERT="${DGCLAW_EXEC_ALERT_USD:-5}"
 LOG_DIR="${DGCLAW_LOGS_DIR:-$WS/.dgclaw/logs}"
 STATE_FILE="${DGCLAW_COST_STATE:-$LOG_DIR/.cost-alerts-state.json}"
@@ -105,9 +106,19 @@ if [ "$PY_RC" -ne 0 ] || ! echo "$SUMMARY" | jq -e '.total' >/dev/null 2>&1; the
 fi
 
 TOTAL=$(echo "$SUMMARY" | jq -r '.total')
-PCT=$(python3 -c "b=float('$BUDGET'); t=float('$TOTAL'); print(int((t/b)*100) if b>0 else 0)")
-
-echo "[$(date -Iseconds)] month_total=\$$TOTAL budget=\$$BUDGET pct=$PCT%" >> "$RUN_LOG"
+# Sem teto configurado nao ha contra o que comparar: um default inventado (era US$ 200)
+# alertava gasto "perto do limite" de um limite que a pessoa nunca escolheu.
+TEM_TETO=0
+if [[ "$BUDGET" =~ ^[0-9]+([.][0-9]+)?$ ]] && python3 -c "import sys; sys.exit(0 if float('$BUDGET') > 0 else 1)"; then
+    TEM_TETO=1
+fi
+PCT=0
+if [ "$TEM_TETO" = 1 ]; then
+    PCT=$(python3 -c "b=float('$BUDGET'); t=float('$TOTAL'); print(int((t/b)*100))")
+    echo "[$(date -Iseconds)] month_total=\$$TOTAL budget=\$$BUDGET pct=$PCT%" >> "$RUN_LOG"
+else
+    echo "[$(date -Iseconds)] month_total=\$$TOTAL sem teto configurado (DGCLAW_BUDGET_USD vazio ou invalido): nada a conferir nos limites mensais" >> "$RUN_LOG"
+fi
 
 MONTH=$(date '+%Y-%m')
 
@@ -126,10 +137,12 @@ fire_threshold() {
     fi
 }
 
-[ "$PCT" -ge 50 ]  && fire_threshold 50
-[ "$PCT" -ge 75 ]  && fire_threshold 75
-[ "$PCT" -ge 90 ]  && fire_threshold 90
-[ "$PCT" -ge 100 ] && fire_threshold 100
+if [ "$TEM_TETO" = 1 ]; then
+    [ "$PCT" -ge 50 ]  && fire_threshold 50
+    [ "$PCT" -ge 75 ]  && fire_threshold 75
+    [ "$PCT" -ge 90 ]  && fire_threshold 90
+    [ "$PCT" -ge 100 ] && fire_threshold 100
+fi
 
 # ── 3. execucoes individuais caras (1x por session_id) ───────────────────────
 echo "$SUMMARY" | jq -c '.exec_alerts[]' | while read -r alert; do

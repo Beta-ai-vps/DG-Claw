@@ -96,7 +96,7 @@ test('imagem: build ativo com STEP 4/10 ocupa a faixa de 5 a 30; failed vira err
   assert.equal((await ver()).pct, 5);
   fs.writeFileSync(logImagem, 'STEP 1/10: FROM debian\n--> abc\nSTEP 4/10: RUN apt-get install\n');
   let pr = await ver();
-  assert.equal(pr.pct, 5 + Math.floor(25 * 4 / 10)); assert.match(pr.etapa, /Preparando a imagem dos agentes/);
+  assert.equal(pr.pct, 5 + Math.floor(25 * 4 / 10)); assert.match(pr.etapa, /Preparando a imagem dos agentes/); assert.match(pr.etapa, /de 5 a 15 minutos/);
   assert.equal(pr.passo, 4); assert.equal(pr.total, 10); assert.equal(pr.erro, null);
 
   // a criação começa com a imagem ainda ativa e sem etapas: a barra continua na imagem

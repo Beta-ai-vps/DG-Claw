@@ -27,7 +27,7 @@ function defaults() {
     pulsoDir: null,            // default = <agentDir>/.dgclaw/logs/pulso
     pulsoStatusScript: null,   // override do path do pulso-status.py; null = auto-resolve
     authSalt: 'dgclaw-dash',
-    budgetUsd: 200,
+    budgetUsd: null,           // null = sem teto de gastos (a tela não mostra teto nem porcentagem)
     avatar: '/assets/sprites/avatar.jpg',
     level: null,               // opcional, mostrado no card de status
     schedule: [],              // [{time,type,label}] — vazio = sem grade de crons esperada
@@ -86,7 +86,7 @@ function loadConfig(serverDir) {
   if (!cfg.logPrefix) cfg.logPrefix = cfg.agentSlug || 'agente';
   if (!cfg.pulsoDir) cfg.pulsoDir = path.join(cfg.agentDir, '.dgclaw', 'logs', 'pulso');
   if (typeof cfg.timezoneOffsetHours !== 'number') cfg.timezoneOffsetHours = -3;
-  if (typeof cfg.budgetUsd !== 'number') cfg.budgetUsd = 200;
+  if (typeof cfg.budgetUsd !== 'number' || !(cfg.budgetUsd > 0)) cfg.budgetUsd = null;
   if (!cfg.creatorKey) cfg.creatorKey = 'agent_owner';
   if (!Array.isArray(cfg.schedule)) cfg.schedule = [];
 

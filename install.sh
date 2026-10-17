@@ -270,20 +270,37 @@ checar_portas() {
     fi
 }
 
+# Confere a versao do sistema lendo "$R/etc/os-release" (em producao R e vazio, entao e o
+# /etc/os-release de sempre). Fica separada para os testes poderem exercitar so esta parte.
+checar_versao_so() {
+    local so
+    [ -r "$R/etc/os-release" ] || falha "nao achei /etc/os-release, entao nao sei qual sistema e este." "o DG Claw v1 instala em Ubuntu 22.04, 24.04 ou 26.04."
+    # shellcheck source=/dev/null
+    so="$(. "$R/etc/os-release" && printf '%s %s' "${ID:-?}" "${VERSION_ID:-?}")"
+    # 22.04 e 24.04 sao as versoes testadas. O 26.04 ja instalou do comeco ao fim (imersao de
+    # 17/10/2026), entao entra com aviso e sem pergunta: a pessoa ja criou a VPS e vai instalar
+    # de qualquer jeito. Outras versoes seguem recusadas ate alguem testar.
+    case "$so" in
+        "ubuntu 22.04"|"ubuntu 24.04") ok "sistema: $so" ;;
+        "ubuntu 26.04")
+            ok "sistema: $so"
+            aviso "O DG Claw foi feito e testado no Ubuntu 24.04. O 26.04 tem funcionado, mas pode apresentar alguma instabilidade. Vou instalar mesmo assim." ;;
+        *) falha "este sistema e '$so' e o DG Claw v1 so instala em Ubuntu 22.04, 24.04 ou 26.04." \
+               "crie um servidor com Ubuntu 24.04 e rode o instalador nele." ;;
+    esac
+}
+
 checar_maquina() {
     passo "Conferindo a maquina"
     if pular_checagens; then
+        # Raiz falsa dos testes: o resto e pulado, mas a versao do sistema ainda vale conferir
+        # quando o teste forneceu um os-release.
+        if [ -r "$R/etc/os-release" ]; then checar_versao_so; fi
         info "checagens da maquina puladas (teste com raiz falsa)."
         return 0
     fi
-    local so mem_kb disco_kb
-    [ -r /etc/os-release ] || falha "nao achei /etc/os-release, entao nao sei qual sistema e este." "o DG Claw v1 instala em Ubuntu 22.04 ou 24.04."
-    so="$(. /etc/os-release && printf '%s %s' "${ID:-?}" "${VERSION_ID:-?}")"
-    case "$so" in
-        "ubuntu 22.04"|"ubuntu 24.04") ok "sistema: $so" ;;
-        *) falha "este sistema e '$so' e o DG Claw v1 so instala em Ubuntu 22.04 ou 24.04." \
-               "crie um servidor com Ubuntu 24.04 e rode o instalador nele." ;;
-    esac
+    local mem_kb disco_kb
+    checar_versao_so
     [ "$(id -u)" -eq 0 ] || falha "o instalador precisa rodar como root (voce e o usuario $(id -un))." \
         "rode com sudo: sudo ./install.sh --usuario $USUARIO"
     ok "rodando como root"
@@ -332,7 +349,7 @@ baixar_chave() {
 instalar_pacotes() {
     passo "Instalando os pacotes"
     local base=(curl ca-certificates gnupg) faltam=() p
-    local todos=(podman uidmap slirp4netns git jq ufw dnsutils rsync python3 build-essential)
+    local todos=(podman uidmap git jq ufw dnsutils rsync python3 build-essential)
     local precisa_caddy=0 precisa_node=0 repos_novos=0
     local chave_caddy="$R/usr/share/keyrings/caddy-stable-archive-keyring.gpg"
     local lista_caddy="$R/etc/apt/sources.list.d/caddy-stable.list"
@@ -347,8 +364,16 @@ instalar_pacotes() {
         executar_log env DEBIAN_FRONTEND=noninteractive apt-get install -y "${faltam[@]}"
     fi
 
-    # passt e opcional (rede mais rapida para rootless); so entra se o apt conhece.
+    # Rede dos containers rootless: o podman 4 (22.04 e 24.04) usa o slirp4netns e o podman 5
+    # (26.04) usa o passt. Cada um so entra se o apt conhece, porque versao nova do Ubuntu pode
+    # tirar o slirp4netns do repositorio; sem nenhum dos dois o agente nao tem rede.
+    if apt-cache show slirp4netns >/dev/null 2>&1; then todos+=(slirp4netns); fi
     if apt-cache show passt >/dev/null 2>&1; then todos+=(passt); fi
+    case " ${todos[*]} " in
+        *" slirp4netns "*|*" passt "*) ;;
+        *) falha "o apt nao conhece nem o pacote slirp4netns nem o passt, e um dos dois e a rede dos agentes." \
+               "rode apt-get update e confira com: apt-cache policy slirp4netns passt. Se nenhum aparecer, use um servidor com Ubuntu 24.04." ;;
+    esac
 
     if ! pacote_instalado caddy; then precisa_caddy=1; fi
     local major
@@ -419,6 +444,33 @@ escolher_dominio() {
         DOMINIO="${ip//./-}.sslip.io"
         ok "endereco: $DOMINIO (gratuito, aponta sozinho para $ip)"
     fi
+}
+
+# Quem instala o Claude Code costuma nao rodar a linha que poe ~/.local/bin no PATH, e ai o
+# terminal nao acha o `claude` mesmo ele existindo. Acha onde esta e acrescenta ao PATH deste
+# instalador, sem mexer em nenhum arquivo da pessoa.
+localizar_claude() {
+    local pasta home_sudo="" achou=""
+    if command -v claude >/dev/null 2>&1; then return 0; fi
+    if [ -n "${SUDO_USER:-}" ]; then
+        home_sudo="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6)" || home_sudo=""
+    fi
+    for pasta in "$R/root/.local/bin" ${home_sudo:+"$home_sudo/.local/bin"} "$R/usr/local/bin"; do
+        if [ -x "$pasta/claude" ] && [ ! -d "$pasta/claude" ]; then achou="$pasta"; break; fi
+    done
+    [ -n "$achou" ] || return 0
+    PATH="$achou:$PATH"
+    export PATH
+    ok "Claude Code encontrado em $achou/claude"
+    aviso "o seu terminal nao acha o comando claude (a pasta $achou nao esta no PATH). Usei o caminho certo so nesta instalacao. Para as proximas vezes, rode: echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+}
+
+# Com o provedor claude decidido, o comando precisa existir em algum lugar.
+exigir_claude() {
+    [ "$PROVEDOR" = claude ] || return 0
+    if command -v claude >/dev/null 2>&1; then return 0; fi
+    falha "o Claude Code nao foi encontrado (nem no PATH, nem em ~/.local/bin), e o Admin precisa dele." \
+        "instale o Claude Code (https://code.claude.com/docs/en/setup), rode: echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc, entre na sua assinatura rodando: claude, e rode o instalador de novo. Se voce usa o Codex, rode com --provedor codex."
 }
 
 detectar_provedor() {
@@ -936,6 +988,9 @@ main() {
 
     ler_senha
     checar_maquina
+    localizar_claude
+    detectar_provedor
+    exigir_claude
     instalar_pacotes
     escolher_dominio
     instalar_codigo

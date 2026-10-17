@@ -2,7 +2,7 @@
 
 ## Instalação no servidor e primeiro agente pelo painel
 
-Em uma VPS Ubuntu 22.04 ou 24.04, com acesso root, pelo menos 2 GB de RAM e 15 GB livres,
+Em uma VPS Ubuntu 24.04 ou 22.04 (o 26.04 também instala, com um aviso), com acesso root, pelo menos 2 GB de RAM e 15 GB livres,
 prepare Claude Code ou Codex e entre na sua assinatura. O Admin reutiliza esse login no root; a assinatura
 é necessária para o Admin conversar.
 

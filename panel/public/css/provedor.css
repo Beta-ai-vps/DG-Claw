@@ -34,6 +34,7 @@
 .prov-codigo-linha{display:flex;flex-wrap:wrap;gap:8px}
 .prov-codigo-linha input{flex:1 1 220px;min-width:0;min-height:36px;padding:6px 10px;border-radius:8px;
   border:1px solid var(--linha);background:var(--painel)}
+.prov-olho{min-width:36px;min-height:36px;padding:0 8px;line-height:1}
 .prov-codigo-grande{font-size:34px;font-weight:700;letter-spacing:.12em;font-family:ui-monospace,monospace;
   padding:8px 0;overflow-wrap:anywhere}
 .prov-login-pe{display:flex;flex-wrap:wrap;gap:8px}
