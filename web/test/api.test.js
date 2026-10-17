@@ -180,7 +180,7 @@ test('send: runner fora do ar vira 502 com motivo', async () => {
   } finally { await s.t.fechar(); await s.rAdmin.fechar(); }
 });
 
-test('send: no Admin, "/..." vai cru; em agente comum vai dentro do envelope', async () => {
+test('send: "/compact" vai cru para o Admin e para o agente comum; texto comum vai no envelope', async () => {
   const s = await cenario();
   try {
     await s.t.c.post('/api/v1/agents/admin/send', { json: { text: '/compact' } });
@@ -188,7 +188,8 @@ test('send: no Admin, "/..." vai cru; em agente comum vai dentro do envelope', a
     await s.t.c.post('/api/v1/agents/ana/send', { json: { text: '/compact' } });
     assert.equal(s.rAdmin.rec.inputs[0].text, '/compact');
     assert.match(s.rAdmin.rec.inputs[1].text, /^<dgchat from="pessoa" chat="c_admin"/);
-    assert.match(s.rAna.rec.inputs[0].text, /^<dgchat from="pessoa" chat="c_ana"[^>]*>\/compact<\/dgchat>$/);
+    // Mudou com os comandos de barra: antes só o Admin mandava cru, agora vale para todos (com checagem do catálogo).
+    assert.equal(s.rAna.rec.inputs[0].text, '/compact');
   } finally { await s.fechar(); }
 });
 
@@ -208,7 +209,7 @@ test('messages: pagina pela fixture (limit, before, after) com o formato da tela
   try {
     const todas = (await s.t.c.get('/api/v1/agents/ana/messages')).json;
     assert.equal(todas.ok, true);
-    assert.equal(todas.msgs.length, 9);
+    assert.equal(todas.msgs.length, 10); // inclui o eco "/clear" da fixture, que agora aparece
     assert.equal(todas.mais_antigas, false);
     assert.deepEqual(todas.avisos, []);
     const p1 = (await s.t.c.get('/api/v1/agents/ana/messages?limit=3')).json;
@@ -216,7 +217,7 @@ test('messages: pagina pela fixture (limit, before, after) com o formato da tela
     assert.equal(p1.mais_antigas, true); assert.equal(p1.limit, 3);
     const p2 = (await s.t.c.get(`/api/v1/agents/ana/messages?limit=3&before=${p1.msgs[0].ep}`)).json;
     assert.deepEqual(p2.msgs.map((m) => m.id), todas.msgs.slice(-6, -3).map((m) => m.id));
-    const dep = (await s.t.c.get(`/api/v1/agents/ana/messages?after=${todas.msgs[6].ep}`)).json;
+    const dep = (await s.t.c.get(`/api/v1/agents/ana/messages?after=${todas.msgs[7].ep}`)).json;
     assert.equal(dep.msgs.length, 2);
     assert.equal((await s.t.c.get('/api/v1/agents/ana/messages?limit=0')).status, 400);
     assert.equal((await s.t.c.get('/api/v1/agents/ana/messages?before=abc')).status, 400);
@@ -303,7 +304,7 @@ test('stream SSE: ola, msgs, atividade (ocioso) e msgs novas quando o transcript
     assert.equal(r.eventos[0].dados.agente, 'ana');
     assert.ok('versao_js' in r.eventos[0].dados);
     const primeiro = r.eventos.find((e) => e.event === 'msgs');
-    assert.equal(primeiro.dados.novas.length, 9);
+    assert.equal(primeiro.dados.novas.length, 10);
     assert.ok(Number(primeiro.id) > since, 'o id do evento é o maior ep entregue');
     const ativ = r.eventos.find((e) => e.event === 'atividade');
     assert.equal(ativ.dados.agentes.ana.estado, 'ocioso');

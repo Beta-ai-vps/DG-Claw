@@ -16,6 +16,7 @@ const { criarCompartilhados } = require('./lib/compartilhados');
 const { criarLeitor, paraContainer } = require('./lib/thread');
 const { criarLeitorRollout } = require('./lib/rollout');
 const { criarConversa, RX_CLIENTE_ID } = require('./lib/conversa');
+const { criarComandos } = require('./lib/comandos');
 const { lerMultipart, nomeSeguro, gravaSemSobrescrever } = require('./lib/uploads');
 const { abrirStream } = require('./lib/sse');
 const { criarProxy } = require('./lib/proxy');
@@ -74,7 +75,8 @@ function criarServidor(opcoes) {
   const alertas = agente => criarAlertas(path.join(config.dataDir, 'alertas', agente.slug + '.json'), agente.chat_id);
   // Integração com a caixa do agente (retrato) e com o push entra ao juntar com feat/lembretes.
   const foco = criarFoco({ dir: path.join(config.dataDir, 'foco'), tz: config.tz, log, registro, gravaRetrato: opcoes.gravaRetrato || null, push: opcoes.push || null, quemChamou: opcoes.quemChamou || null });
-  const conversa = criarConversa({ alertas, config, runner, leitor, leitorRollout, midia, log, agora: opcoes.agora, gravaToken: opcoes.gravaToken });
+  const comandos = criarComandos({ runner, log, agora: opcoes.agora });
+  const conversa = criarConversa({ comandos, alertas, config, runner, leitor, leitorRollout, midia, log, agora: opcoes.agora, gravaToken: opcoes.gravaToken });
   const compartilhados = criarCompartilhados(conversa);
   const onboarding = criarOnboarding({ config, registro, conversa, midia, log, imagem: opcoes.imagem });
   const login = criarLogin({ runner, conversa, log, agora: opcoes.agora, oiPrazoMs: opcoes.loginOiPrazoMs, oiPassoMs: opcoes.loginOiPassoMs });
@@ -361,6 +363,11 @@ function criarServidor(opcoes) {
       return H.enviaJson(res, r.status, r.corpo);
     }
 
+    if (p === '/api/v1/comandos/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'COMANDOS-DE-BARRA.md'), 'utf8'));
+    }
+
     if (p === '/api/v1/trilha/docs.md' && m === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'TRILHA-E-PERMISSAO.md'), 'utf8'));
@@ -396,7 +403,9 @@ function criarServidor(opcoes) {
         return H.enviaJson(res, r.status, r.corpo);
       }
       if (acao === 'upload' && m === 'POST') return upload(req, res, agente);
-      return H.erroJson(res, ['messages', 'stream', 'wait', 'send', 'upload', 'permissao', ''].includes(acao) ? 405 : 404, `Não existe ${m} ${p}.`);
+      if (acao === 'comandos' && m === 'GET') return H.enviaJson(res, 200, Object.assign({ ok: true, agente: agente.slug }, await comandos.catalogo(agente)));
+      if (acao === 'comando' && m === 'POST') return comandoPost(req, res, agente);
+      return H.erroJson(res, ['messages', 'stream', 'wait', 'send', 'upload', 'permissao', 'comandos', 'comando', ''].includes(acao) ? 405 : 404, `Não existe ${m} ${p}.`);
     }
 
     mm = /^\/api\/v1\/media\/([0-9a-f]{16})\/visual$/.exec(p);
@@ -502,6 +511,17 @@ function criarServidor(opcoes) {
       return H.erroJson(res, 400, `O "cliente_id" veio como ${JSON.stringify(String(cid).slice(0, 80))}, que não vale: use de 8 a 64 caracteres entre letras, números, "-" e "_". Nada foi enviado.`);
     }
     const r = await conversa.umaVez(agente, 'send', cid || null, () => conversa.enviar(agente, corpo));
+    return H.enviaJson(res, r.status, r.corpo);
+  }
+
+  async function comandoPost(req, res, agente) {
+    const corpo = await lerEnvio(req, res);
+    if (!corpo) return undefined;
+    const cid = corpo.cliente_id;
+    if (cid != null && cid !== '' && !(typeof cid === 'string' && RX_CLIENTE_ID.test(cid))) {
+      return H.erroJson(res, 400, `O "cliente_id" veio como ${JSON.stringify(String(cid).slice(0, 80))}, que não vale: use de 8 a 64 caracteres entre letras, números, "-" e "_". Nada foi enviado.`);
+    }
+    const r = await conversa.umaVez(agente, 'comando', cid || null, () => conversa.comando(agente, corpo));
     return H.enviaJson(res, r.status, r.corpo);
   }
 
