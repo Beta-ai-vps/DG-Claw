@@ -60,7 +60,7 @@ caso_instalacao_cria_arquivos_com_os_modos_certos() {
     afirma "unidade do admin como root" tem "$u/dgclaw-admin.service" "User=root"
     afirma "unidade do admin com a frase do login (RUNNER_LOGIN_HINT)" tem "$u/dgclaw-admin.service" "RUNNER_LOGIN_HINT=Abra o painel do agente e use o botão Entrar com a assinatura."
     afirma "unidade do web na porta 8300" tem "$u/dgclaw-web.service" "DGCLAW_WEB_PORT=8300"
-    afirma "unidade da imagem sem navegador" tem "$u/dgclaw-imagem.service" "COM_NAVEGADOR=0"
+    afirma "unidade da imagem com navegador (render de vídeo das skills)" tem "$u/dgclaw-imagem.service" "COM_NAVEGADOR=1"
     afirma "unidade da imagem com a versao" tem "$u/dgclaw-imagem.service" "localhost/dgclaw-agente:1.0.0-teste"
     afirma "unidade do firewall" tem "$u/dgclaw-firewall.service" "ExecStart=/bin/bash /opt/dgclaw/app/lib/firewall.sh"
     afirma "chave do NodeSource" test -s "$RAIZ/usr/share/keyrings/nodesource.gpg"

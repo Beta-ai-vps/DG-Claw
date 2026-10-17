@@ -39,7 +39,7 @@ RUN npm ci && npm run build && npm prune --omit=dev && npm cache clean --force
 FROM docker.io/library/ubuntu:24.04 AS base
 
 ARG DGCLAW_VERSAO=dev
-ARG COM_NAVEGADOR=0
+ARG COM_NAVEGADOR=1
 ARG NODE_MAJOR=22
 # Versões fixadas: a imagem tem que sair igual hoje e daqui a seis meses.
 ARG CLAUDE_CODE_VERSAO=2.1.296
@@ -115,7 +115,7 @@ RUN python3 -m venv /opt/venv \
 ENV PATH=/opt/venv/bin:$PATH
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 
-# Perfil pesado, só com --build-arg COM_NAVEGADOR=1: Chromium do Playwright com as
+# Perfil com navegador (padrão desde 17/10/2026, as skills de vídeo e slide precisam): Chromium do Playwright com as
 # bibliotecas do sistema, e Xvfb para quem precisa de uma tela. Acrescenta cerca de
 # 500 a 600 MB. O diretório fica legível para o usuário agente.
 RUN if [ "$COM_NAVEGADOR" = "1" ]; then \
