@@ -214,7 +214,8 @@ export DGCLAW_TZ="\${DGCLAW_TZ:-${tz}}"
 # linhas abaixo, o agente cria e atualiza as proprias tarefas na mesa (regra no CLAUDE.md) e o
 # doctor confere se ela responde. Sem elas, a regra fica desligada e nada muda.
 # DGCLAW_MESA_KEY e a chave do agente no DG Telegram, criada com "Agente dono" = este agente;
-# o quadro de avisos da equipe vai usar a mesma chave. Detalhes: docs/MESA-DE-TAREFAS.md.
+# o quadro de avisos da equipe NAO usa esta chave (vem de fabrica, pela caixa do agente).
+# Detalhes da mesa: docs/MESA-DE-TAREFAS.md.
 # Reinstalar o plugin preserva estas duas linhas.
 #   export DGCLAW_MESA_URL="http://127.0.0.1:4045/api/v1/tarefas"
 #   export DGCLAW_MESA_KEY="<chave do agente>"

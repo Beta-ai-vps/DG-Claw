@@ -21,7 +21,7 @@ const SCRIPT_BY_EVENT: Record<string, string[]> = {
   "user-prompt": ["bash", "memory-recall.sh"],
   "post-tool": ["bash", "log-reply.sh"],
   "session-start": ["bash", "session-context.sh"],
-  // quadro de avisos da equipe (opcional; o script sai calado sem DGCLAW_MESA_URL)
+  // quadro de avisos da equipe (le o retrato local .dgclaw/retratos/avisos.json; sai calado se ele ainda nao existe)
   "avisos": ["python3", "avisos.py"],
   "avisos-reset": ["python3", "avisos.py", "reset"],
 };
