@@ -97,6 +97,11 @@ agente, não como root.
   - `--calendar 'Mon *-*-* 18:00:00'` → toda segunda, 18h
   - `--calendar '*-*-01 10:00:00'` → todo dia 1º do mês, 10h
   - `--every 30min` (ou `2h`, `1d`) → de tempos em tempos, contado a partir da última vez
+  - `--calendar '2026-10-17 14:32:00'` → **uma vez só**, nesse dia e hora. É o formato do
+    lembrete ("me lembra daqui a 2 minutos", "amanhã às 10h me avisa"): rode `date`, some o
+    prazo e escreva a data COMPLETA. Nunca use `*-*-*` para lembrete (vira todo dia) nem
+    `--every` (repete). No `--poke`, acrescente ao final: "Depois de avisar, remova esta rotina
+    com remove --name <apelido>.", para o lembrete não ficar ocupando uma das 10 vagas.
 - O fuso é o da máquina (`DGCLAW_TZ`), já configurado. Não faça conta de fuso na mão.
 
 **Rode sempre com `--dry-run` primeiro** e mostre ao dono o que vai ser criado, em português:

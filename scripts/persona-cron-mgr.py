@@ -520,6 +520,9 @@ def install_units(c, name: str, calendar: str | None, every: str | None, poke: s
     timer = ["[Unit]", f"Description=DG Claw self-cron '{name}' (timer): {c['slug']}", "", "[Timer]"]
     if calendar:
         timer.append(f"OnCalendar={calendar}")
+        # Sem isto o systemd pode atrasar ate 1 min (AccuracySec padrao), e "daqui a 2 minutos"
+        # chegaria com quase 3. O custo de acordar no segundo certo e desprezivel.
+        timer.append("AccuracySec=1s")
     if every:
         timer.append(f"OnUnitActiveSec={every}")
         timer.append("OnBootSec=5min")
