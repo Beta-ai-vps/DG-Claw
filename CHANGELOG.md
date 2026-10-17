@@ -5,6 +5,19 @@ Todas as mudanças importantes do DG Claw ficam neste arquivo.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto adota o
 [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Adicionado
+
+- A aba Sessões do painel agora funciona sozinha em cada agente (modo local): cada card é uma sessão
+  paralela do runner do próprio agente. Dá para ver o que cada uma faz, ler a conversa, aprovar ou negar
+  pedidos de permissão (só com login; chave de API não decide), mandar recado, anexar arquivo, arquivar,
+  apagar, retomar na mesma conversa ou numa conversa nova, renomear, dar estrela e fazer handoff. Os cards
+  que o agente abre com o `dgclaw-card` aparecem ali também, e tudo tem rota de API com chave. Sem
+  `DGCLAW_PANEL_SESSOES_URL` o painel usa o modo local; com ela, continua usando o DG Telegram.
+- O limite de cards abertos ao mesmo tempo sobe de 3 para 8 nas instalações novas
+  (`RUNNER_MAX_SESSOES_EXTRAS` na unidade do runner).
+
 ## [1.0.0] - 2026-10-17
 
 A v1 troca o plugin do Claude Code por uma plataforma completa: um instalador, um painel web com
