@@ -9,7 +9,7 @@
   "logDir": null,
   "logPrefix": null,
   "authSalt": "troque-na-instalacao",
-  "budgetUsd": 200,
+  "budgetUsd": null,
   "avatar": "/assets/sprites/avatar.jpg",
   "level": null,
   "timezoneOffsetHours": -3,

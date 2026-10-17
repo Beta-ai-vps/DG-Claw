@@ -22,7 +22,8 @@ programar. O DG Claw usa a sua assinatura do Claude ou do Codex.
 
 ## Requisitos
 
-- Um servidor (VPS) com **Ubuntu 22.04 ou 24.04**, acesso de administrador (root ou sudo), no mínimo
+- Um servidor (VPS) com **Ubuntu 24.04** (o 22.04 também serve; o 26.04 instala com um aviso,
+  porque foi testado menos), acesso de administrador (root ou sudo), no mínimo
   **2 GB de RAM** e **15 GB livres** no disco.
 - **Claude Code** ou **Codex** instalado e com login na sua assinatura, no próprio servidor. A página
   oficial do Claude Code explica a instalação: https://code.claude.com/docs/en/setup

@@ -231,7 +231,8 @@
     } else if (l.estado === 'aguardando_codigo') {
       corpo = `<p><b>1.</b> ${linkHtml ? linkHtml + '.' : 'Abra o link de login que o agente gerou.'} Entre com a sua conta.</p>`
         + '<p><b>2.</b> No fim, a página mostra um código. Cole ele aqui:</p>'
-        + '<div class="prov-codigo-linha"><input type="text" id="prov-codigo" autocomplete="off" spellcheck="false" aria-label="Código que apareceu depois do login" placeholder="cole aqui o código que apareceu">'
+        + '<div class="prov-codigo-linha"><input type="password" id="prov-codigo" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Código que apareceu depois do login" placeholder="cole aqui o código que apareceu">'
+        + '<button type="button" class="prov-btn leve prov-olho" id="prov-codigo-olho" aria-label="Mostrar código" aria-pressed="false" title="Mostrar ou ocultar o código. Fica oculto para não aparecer em tela compartilhada.">&#128065;</button>'
         + '<button type="button" class="prov-btn" id="prov-codigo-enviar" title="Entrega o código ao agente para ele terminar o login.">Enviar</button></div>';
     } else if (l.estado === 'aguardando_navegador') {
       corpo = `<p><b>1.</b> ${linkHtml ? linkHtml + '.' : 'Abra o link de login que o agente gerou.'} Entre com a sua conta do ChatGPT.</p>`
@@ -247,6 +248,20 @@
     box.innerHTML = `${corpo}<div class="prov-login-pe">${cancelar}<button type="button" class="prov-btn leve" id="prov-login-fechar">Fechar</button></div>`;
     const env = $('prov-codigo-enviar');
     if (env) {
+      const olho = $('prov-codigo-olho');
+      const ocultarCodigo = () => {
+        $('prov-codigo').type = 'password';
+        olho.setAttribute('aria-pressed', 'false');
+        olho.setAttribute('aria-label', 'Mostrar código');
+      };
+      olho.addEventListener('click', () => {
+        const campo = $('prov-codigo');
+        if (campo.type === 'password') {
+          campo.type = 'text';
+          olho.setAttribute('aria-pressed', 'true');
+          olho.setAttribute('aria-label', 'Ocultar código');
+        } else ocultarCodigo();
+      });
       const enviar = async () => {
         const campo = $('prov-codigo');
         const codigo = campo.value.trim();
@@ -254,6 +269,7 @@
         env.disabled = true;
         const r = await chamar('POST', '/api/provedor/login/codigo', { codigo });
         campo.value = '';
+        ocultarCodigo();
         env.disabled = false;
         if (!r.ok) mostrarErroLogin(r.corpo);
         else conferirLogin();

@@ -1862,6 +1862,11 @@ async function loadIdentity() {
   const chave = { 'SOUL.md': 'soul', 'IDENTITY.md': 'identity', 'PERSONALITY.md': 'personality', 'ETHICS.md': 'ethics', 'LAWS.md': 'laws', 'CREATOR.md': 'creator' };
   const existentes = data ? files.filter((f) => !chave[f.name] || (data[chave[f.name]] || '').trim()) : files;
   const el = document.getElementById('identity-files');
+  if (!existentes.length) {
+    // Agente novo: os arquivos de identidade ainda nascem vazios. Em branco a aba parece quebrada.
+    el.innerHTML = '<p class="section-updated" style="padding:12px 4px">Ainda vazio. Peça ao agente na conversa: preencha sua identidade e personalidade e me pergunte o que precisar.</p>';
+    return;
+  }
   el.innerHTML = `<div class="memory-list">${existentes.map((f) => `<button type="button" class="memory-item" data-path="${f.name}" title="${escapeHtml(f.dica)}">
       <span class="mi-icon" aria-hidden="true">${f.icon}</span>
       <span class="mi-name">${f.name}<small class="mi-dica">${escapeHtml(f.dica)}</small></span>
@@ -2412,20 +2417,26 @@ async function loadCosts(force) {
 
   // Summary
   const monthTotal = o.month.total;
-  const budget = o.budget;
-  const pct = Math.min(100, Math.round((monthTotal / budget) * 100));
+  const budget = Number(o.budget) > 0 ? Number(o.budget) : null; // null = sem teto configurado
+  const pct = budget ? Math.min(100, Math.round((monthTotal / budget) * 100)) : null;
   const barColor = pct >= 90 ? 'red' : pct >= 75 ? 'yellow' : 'green';
+  const tetoHtml = budget
+    ? `<span style="color:var(--text-dim)">/ ${fmtUSD(budget)} (${pct}%)</span>`
+    : '<span style="color:var(--text-dim)">neste mês (sem teto de gastos configurado)</span>';
+  const barraHtml = budget
+    ? `<div class="rpg-bar-track" style="max-width:500px;height:14px">
+        <div class="rpg-bar-fill ${barColor}" style="width:${pct}%"></div>
+      </div>`
+    : '';
 
   const summaryEl = document.getElementById('costs-summary');
   summaryEl.innerHTML = `
     <div style="font-size:13px;line-height:1.7">
       <div style="font-size:15px;margin-bottom:6px">
         <span style="color:var(--text)">${fmtUSD(monthTotal)}</span>
-        <span style="color:var(--text-dim)">/ ${fmtUSD(budget)} (${pct}%)</span>
+        ${tetoHtml}
       </div>
-      <div class="rpg-bar-track" style="max-width:500px;height:14px">
-        <div class="rpg-bar-fill ${barColor}" style="width:${pct}%"></div>
-      </div>
+      ${barraHtml}
       <div style="margin-top:8px;display:flex;gap:18px;flex-wrap:wrap">
         <span>Hoje: <strong>${fmtUSD(o.today.total)}</strong> <span style="color:var(--text-dim)">(${o.today.executions} exec)</span></span>
         <span>Ontem: <strong>${fmtUSD(o.yesterday.total)}</strong></span>
@@ -2720,6 +2731,24 @@ function htmlSeletorLocal(agentes) {
  */
 async function iniciarSeletorDeAgentes() {
   const troca = document.getElementById('troca');
+  if (!troca || !document.getElementById('lista-agentes')) return;
+
+  // Os ouvintes entram uma vez só; a lista é rebuscada a cada 30 s e quando a aba volta a
+  // ficar visível, para o seletor aparecer (ou sumir) sem recarregar a página.
+  document.getElementById('btn-troca')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    troca.classList.toggle('aberto');
+  });
+  document.addEventListener('click', () => troca.classList.remove('aberto'));
+  const rebuscar = () => { if (document.visibilityState === 'visible') atualizarSeletorDeAgentes(); };
+  document.addEventListener('visibilitychange', rebuscar);
+  setInterval(rebuscar, 30000);
+
+  await atualizarSeletorDeAgentes();
+}
+
+async function atualizarSeletorDeAgentes() {
+  const troca = document.getElementById('troca');
   const lista = document.getElementById('lista-agentes');
   if (!troca || !lista) return;
 
@@ -2752,10 +2781,4 @@ async function iniciarSeletorDeAgentes() {
       ? htmlSeletorPlataforma(agentes, SLUG_PLATAFORMA, APP_CONFIG.avatar)
       : htmlSeletorLocal(agentes);
   }
-
-  document.getElementById('btn-troca')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    troca.classList.toggle('aberto');
-  });
-  document.addEventListener('click', () => troca.classList.remove('aberto'));
 }

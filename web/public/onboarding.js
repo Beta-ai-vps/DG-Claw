@@ -47,7 +47,7 @@
     const cartoes = new Map();
     // Ids dispensados nesta sessão: o polling não pode trazer de volta um cartão cuja gravação no servidor ainda está a caminho.
     const dispensados = new Set();
-    let animando = null;
+    let animando = null, esperaVisivel = false;
     const chaveVista = i => 'dgclaw-anim-vista:' + i;
     function vistaLocal(i) { try { return localStorage.getItem(chaveVista(i)) === '1'; } catch (_) { return false; } }
     async function marcarVista(i) {
@@ -91,7 +91,7 @@
     }
     // Pelo X ou pelo Esc: esconde, nada é apagado. No estado final (pronto), fechar leva o cartão ao histórico.
     function fechaModal() {
-      if (finalDe) { const d = finalDe; finalDe = null; animando = null; escondeModal(); encerraAnimacao(d); devolveFoco(); return; }
+      if (finalDe) { const d = finalDe; finalDe = null; animando = null; escondeModal(); encerraAnimacao(d, true); devolveFoco(); return; }
       minimizado = true;
       escondeModal();
       atualizaPilula();
@@ -119,12 +119,14 @@
       else if (ev.shiftKey && at === p) { ev.preventDefault(); u.focus(); }
       else if (!ev.shiftKey && at === u) { ev.preventDefault(); p.focus(); }
     });
-    function encerraAnimacao(d) {
+    /* tocou: a animação rodou nesta aba. Só então ela conta como vista; uma aba que abre já com tudo pronto
+       (sem tela de progresso) só mostra o cartão e não pode gastar a animação da aba que acompanhou a criação. */
+    function encerraAnimacao(d, tocou) {
       if (dispensados.has(d.id)) return;
       if (cartoes.has(d.id) && !temConteudo()) return;
       encerraModal();
       cartoes.set(d.id, { id: d.id, nome: d.nome, foto: d.foto, conversa: d.conversa, concluido: d.concluido });
-      if (!d.animacaoVista) marcarVista(d.id);
+      if (tocou && !d.animacaoVista) marcarVista(d.id);
       pedeRender();
     }
     function avisoDeErro(m) {
@@ -343,7 +345,10 @@
         // Criação acompanhada nesta página (havia tela de progresso): o modal mostra o estado final e fica
         // aberto até a pessoa fechar. Se a página já abriu com tudo pronto, vai direto para o histórico.
         const acompanhada = !!tela;
-        if (!acompanhada) { encerraAnimacao(d); return; }
+        if (!acompanhada) { encerraAnimacao(d, false); return; }
+        // Aba oculta: a animação só toca (e só conta como vista) quando a pessoa a estiver vendo.
+        if (document.visibilityState !== 'visible') { esperaVisivel = true; return; }
+        esperaVisivel = false;
       }
       const assinatura = d.fase + ':' + d.id + ':' + d.mensagem + ':' + comErro;
       if (assinatura === tela) { pintaBarra(d); return; }
@@ -389,7 +394,7 @@
       catch(e) { if (!temConteudo()) { host.innerHTML=cab('Vamos começar')+'<p class="nas-erro" role="alert"></p>'; host.querySelector('.nas-tutorial').onclick=()=>tutorial(); abreModal(); } erro(e.message); }
       finally { rodando = false; agendar(); }
     }
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && ultimaFase !== 'pronto') atualizar(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && (ultimaFase !== 'pronto' || esperaVisivel)) atualizar(); });
     atualizar();
     window.addEventListener('pagehide',()=>clearTimeout(timer),{once:true});
   }

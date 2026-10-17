@@ -16,7 +16,7 @@ const path = require('path');
 
 function buildCosts(config) {
   const LOG_DIR = config.logDir;
-  const BUDGET_USD = typeof config.budgetUsd === 'number' ? config.budgetUsd : 200;
+  const BUDGET_USD = typeof config.budgetUsd === 'number' && config.budgetUsd > 0 ? config.budgetUsd : null; // null = sem teto
   const TZ_OFFSET_MS = (config.timezoneOffsetHours || 0) * 3600000;
   const SLUG = config.agentSlug || 'agente';
 

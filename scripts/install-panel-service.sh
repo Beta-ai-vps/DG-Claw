@@ -291,7 +291,7 @@ const tmpPath = configPath + '.tmp';
 const defaults = {
   creatorKey: 'agent_owner',
   meetingsDir: null,
-  budgetUsd: 200,
+  budgetUsd: null,
   avatar: '/assets/sprites/avatar.jpg',
   level: null,
   timezoneOffsetHours: -3,

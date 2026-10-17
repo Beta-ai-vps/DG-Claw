@@ -7,7 +7,7 @@ pelo painel.
 
 ## Antes de começar
 
-Uma VPS Ubuntu 22.04 ou 24.04, com acesso root, 2 GB de memória e 15 GB livres. As portas 80 e 443
+Uma VPS Ubuntu 24.04 ou 22.04 (o 26.04 também instala, com um aviso de que foi testado menos), com acesso root, 2 GB de memória e 15 GB livres. As portas 80 e 443
 precisam estar disponíveis. Claude Code ou Codex deve estar instalado e conectado à sua assinatura
 no root da VPS. `--provedor claude` ou `--provedor codex` define o motor do Admin. Sem opção,
 o instalador mantém a escolha anterior; em uma máquina nova, procura Claude primeiro e depois
@@ -79,6 +79,8 @@ com o agente quando você precisar. O acesso à assinatura de cada agente é fei
 
 - **Motor sem login no root:** entre no Claude Code ou Codex, conforme a escolha, no root da VPS
   e repita a instalação.
+- **Terminal não acha o `claude`:** a pasta `~/.local/bin` não está no PATH. Rode
+  `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` e tente de novo.
 - **Porta ocupada:** a mensagem identifica o conflito. Confira o serviço existente antes de pará-lo.
 - **HTTPS não abriu:** confira se o domínio aponta para a VPS e se 80/443 estão liberadas no provedor.
 - **Criação demorando:** a primeira criação também prepara a imagem dos agentes. O Admin acompanha

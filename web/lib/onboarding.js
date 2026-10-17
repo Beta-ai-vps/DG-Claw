@@ -36,7 +36,7 @@ const FIXOS = {
 };
 // Marco seguinte de cada fase fixa (a imagem e a criação calculam o seu pelo passo).
 const PROXIMOS = { enviando: FIXOS.solicitado[0], solicitado: FAIXA_IMAGEM[1], login: FIXOS.testando[0], testando: FIXOS.pronto[0], pronto: 100 };
-const ETAPA_IMAGEM = 'Preparando a imagem dos agentes (só na primeira vez, leva alguns minutos)';
+const ETAPA_IMAGEM = 'Preparando a imagem dos agentes (só na primeira vez, pode levar de 5 a 15 minutos)';
 // Ordem e títulos de `dgclaw agente criar` (bin/dgclaw). O texto do log vem sem acento.
 const ETAPAS = [
   [/^Reservando a faixa/i, 'Reservando um espaço para o agente'],
