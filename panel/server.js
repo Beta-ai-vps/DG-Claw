@@ -376,9 +376,13 @@ const _htmlCache = new Map();
 // ali em cima seria pior que link nenhum. Servido pela plataforma, o painel vive na
 // MESMA origem da estante, que mora na raiz, e por isso o href é "/" e não precisa saber
 // o endereço de coisa alguma.
+// A tela principal do agente é a conversa do chat (/a/<slug>); o painel são as páginas dele.
+// O slug vem do próprio BASE ("/p/<slug>"), com o do config como reserva.
+const SLUG_DA_FACHADA = (BASE.match(/^\/p\/([^/]+)/) || [])[1] || CONFIG.agentSlug || '';
+const URL_CONVERSA = SLUG_DA_FACHADA ? `/a/${encodeURIComponent(SLUG_DA_FACHADA)}` : '/';
 const VOLTAR_HTML =
-  '<a class="btn-voltar" href="/" aria-label="voltar para os meus assistentes">' +
-  '<span aria-hidden="true">←</span><span class="btn-voltar-texto">meus assistentes</span></a>';
+  `<a class="btn-voltar" href="${URL_CONVERSA}" aria-label="voltar para a conversa">` +
+  '<span aria-hidden="true">←</span><span class="btn-voltar-texto">conversa</span></a>';
 
 // Devolve o HTML já com {{BASE}} trocado, ou null se o arquivo não existe.
 function carregarTemplate(filePath) {

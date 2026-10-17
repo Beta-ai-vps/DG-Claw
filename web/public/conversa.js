@@ -166,7 +166,7 @@ const rolagem = (() => {
 const btnEnviar = $('btnEnviar'), btnMic = $('btnMic'), micTxt = $('micTxt');
 const btnParar = $('btnParar'), btnContinua = $('btnContinua');
 const btnLer = $('btnLer'), player = $('player'), avEl = $('av');
-const menu = $('menu'), overlayMenu = $('overlayMenu'), listaAgentes = $('listaAgentes');
+const menu = $('menu'), overlayMenu = $('overlayMenu');
 const fErro = $('faixaErro'), fAviso = $('faixaAviso');
 const btnAnexo = $('btnAnexo'), inputArquivo = $('arquivo');
 const anexoChip = $('anexoChip'), anexoLista = $('anexoLista'), anexoInfo = $('anexoInfo');
@@ -216,7 +216,6 @@ document.title = AGENTE.nome + ' - DG Claw';
 $('nomeAgente').textContent = AGENTE.nome;
 pintaAvatar(avEl, AGENTE);
 entrada.placeholder = 'Escrever para ' + AGENTE.nome;
-$('gmConversaSub').textContent = AGENTE.nome;
 if (EH_ADMIN) $('avisoAdmin').hidden = false;
 if (!caps.microfone) document.documentElement.classList.add('sem-mic');
 if (!caps.voz) document.documentElement.classList.add('sem-voz');
@@ -2645,48 +2644,15 @@ function abreMenu(abrir) {
 $('btnMenu').onclick = () => { destravarAudio(); abreMenu(true); };
 $('btnFechaMenu').onclick = () => abreMenu(false);
 overlayMenu.onclick = () => abreMenu(false);
-$('gmIrConversa').onclick = () => abreMenu(false);
 document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && menu.classList.contains('abre') && !document.getElementById('tourCaixa')) {
     abreMenu(false);
   }
 });
 
-/* Lista de agentes: Admin primeiro (com selo), avatar, nome e provedor/modelo.
-   Trocar de agente navega para /a/<slug>. */
-function textoProvedor(a) {
-  const partes = [a.provedor, a.modelo].filter(Boolean);
-  return partes.length ? partes.join(' · ') : (a.subtitulo || '');
-}
-function itemMenu(a) {
-  const ativo = a.id === AGENTE.id;
-  const av = a.avatar_img ? `<img src="${esc(a.avatar_img)}" alt="">`
-    : (/^https:\/\//i.test(a.avatar || '') ? `<img src="${esc(a.avatar)}" alt="">`
-       : esc(a.avatar || (a.nome || '?').slice(0, 1)));
-  const selo = a.tipo === 'admin' ? '<span class="selo">admin</span>' : '';
-  const prov = textoProvedor(a);
-  return `<a class="item${ativo ? ' ativo' : ''}" href="/a/${encodeURIComponent(a.id)}"` +
-    `${ativo ? ' aria-current="page"' : ''}>` +
-    `<div class="av" style="background:${esc(a.cor || '#2f9e5e')}">${av}</div>` +
-    `<div class="meio"><b>${esc(a.nome)}${selo}</b><small>${esc(prov)}</small>` +
-    `${ativo ? '<span class="agora">conversa atual</span>' : ''}</div></a>`;
-}
-function pintaListaAgentes() {
-  listaAgentes.innerHTML = agentesMenu.map(itemMenu).join('');
-}
-pintaListaAgentes();
-
-/* Painel do agente: link na mesma janela, escondido no Admin (ele não tem painel). */
-(function () {
-  const sec = $('gmSecPainel');
-  if (EH_ADMIN) { sec.hidden = true; return; }
-  sec.hidden = false;
-  $('gmPainelTit').textContent = 'Painel de ' + AGENTE.nome;
-  $('gmPainelNome').textContent = 'Painel de ' + AGENTE.nome;
-  const a = $('gmPainel');
-  a.href = '/p/' + encodeURIComponent(AGENTE.id) + '/';
-  a.title = 'Abrir o painel de ' + AGENTE.nome + ': status, memória e custos';
-})();
+/* Foto, seletor de agentes, páginas do painel e Configurações: tudo no menu-lado.js.
+   A lista já veio do boot, então não é buscada de novo. */
+window.DGMenuLado.inicia({ agente: AGENTE, agentes: agentesMenu, fecha: () => abreMenu(false) });
 
 /* O Safari só deixa tocar som num <audio> que já tocou dentro de um gesto do
    dedo. Então no PRIMEIRO toque da tela eu toco um mp3 em silêncio nesse mesmo
@@ -3527,10 +3493,14 @@ function passosTutorial() {
   const abreM = () => abreMenu(true), fechaM = () => abreMenu(false);
   const nome = AGENTE.nome;
   const passos = [
-    { alvo: '#listaAgentes', antes: abreM, titulo: 'A lista de agentes',
-      oque: 'Os agentes que trabalham para você. O Admin vem primeiro, com o selo "admin", e embaixo do nome de cada um aparece qual inteligência ele usa.',
-      como: 'Toque num agente para abrir a conversa com ele. Cada agente tem a própria conversa e a própria memória.',
-      porque: 'Assim você escolhe com quem falar sem sair desta tela. O Admin cuida da instalação e dos ajustes; os outros fazem o trabalho do dia a dia.' },
+    { alvo: '#mlMoldura', antes: abreM, titulo: 'O menu do agente',
+      oque: 'A foto, o nome e as páginas de ' + nome + ', sempre no lado esquerdo. No computador ele fica aberto o tempo todo; no celular abre pelo botão ☰.',
+      como: 'O item Conversa (esta tela) fica no alto. Os outros itens levam às páginas do painel dele. O Tutorial, aqui em cima, repete esta visita.',
+      porque: 'Assim a conversa e o painel de cada agente ficam no mesmo lugar, sem link escondido.' },
+    ...(agentesMenu.length > 1 ? [{ alvo: '#mlTroca', antes: abreM, titulo: 'Trocar de agente',
+      oque: 'Um seletor com todos os agentes que trabalham para você, cada um com a sua foto. O Admin vem primeiro, com o selo "admin"; o agente em que você está aparece marcado com "aqui".',
+      como: 'Toque em "trocar de agente" e escolha um da lista: a conversa e o menu passam a ser dele. Cada agente tem a própria conversa e a própria memória.',
+      porque: 'Você escolhe com quem falar sem sair desta tela. O Admin cuida da instalação e dos ajustes; os outros fazem o trabalho do dia a dia.' }] : []),
     { alvo: '#chat', antes: fechaM, titulo: 'A conversa',
       oque: 'Aqui aparece tudo o que você e ' + nome + ' já escreveram, na ordem, como num aplicativo de mensagens.',
       como: 'As respostas chegam sozinhas, sem precisar atualizar a página. Role para cima para ver as mensagens mais antigas; a seta no canto leva de volta para a mais nova. Quando uma mensagem veio ou foi respondida pelo WhatsApp ou pelo Telegram, ela ganha um selinho com o nome do canal; passe o dedo ou o mouse nele para ver os detalhes.',
@@ -3565,15 +3535,21 @@ function passosTutorial() {
     oque: 'Uma faixa que aparece sozinha quando o agente está trabalhando. O que você vê agora é só um exemplo.',
     como: 'Ela mostra o que ele está fazendo naquele momento. Fica amarela se ele estiver esperando uma autorização sua, e cinza se a conexão com ele cair ("sem sinal").',
     porque: 'Alguns pedidos demoram. Com a faixa você sabe que o agente não travou, e sabe quando precisa agir.' });
-  passos.push({ alvo: '#btnMenu', antes: fechaM, titulo: 'O menu',
-    oque: 'O botão ☰ abre a gaveta com a lista de agentes' + (EH_ADMIN ? '' : ', o painel do agente') + ' e o botão Sair.',
-    como: 'Toque nele quando quiser trocar de agente ou sair. Toque fora da gaveta, ou no ✕, para fechar.',
-    porque: 'Mantém a tela da conversa limpa: o que não é conversa fica guardado na gaveta.' });
+  passos.push({ alvo: '#btnMenu', antes: fechaM, titulo: 'O botão do menu',
+    oque: 'No celular, o botão ☰ abre o menu do agente. No computador ele não aparece, porque o menu já fica fixo à esquerda.',
+    como: 'Toque nele quando quiser trocar de agente, abrir uma página do painel ou sair. Toque fora do menu, no ✕ ou na tecla Esc para fechar.',
+    porque: 'Mantém a tela da conversa limpa: o que não é conversa fica guardado no menu.' });
   if (!EH_ADMIN) {
-    passos.push({ alvo: '#gmSecPainel', antes: abreM, titulo: 'O painel de ' + nome,
-      oque: 'Uma página à parte com o estado de ' + nome + ': como ele está, o que ele guarda na memória e quanto está gastando.',
-      como: 'Toque em "Painel de ' + nome + '" e a página abre na mesma janela. Para voltar à conversa, use o voltar do navegador.',
-      porque: 'A conversa serve para pedir coisas; o painel serve para acompanhar e ajustar o agente.' });
+    passos.push({ alvo: '#mlPainel', antes: abreM, titulo: 'As páginas do painel de ' + nome,
+      oque: 'Status, Memória, Operações, Custos e as outras páginas que mostram como ' + nome + ' está, o que ele guarda e quanto gasta.',
+      como: 'Toque numa página e ela abre na mesma janela. Para voltar à conversa, use o item Conversa do menu do painel ou o voltar do navegador.',
+      porque: 'A conversa serve para pedir coisas; as páginas do painel servem para acompanhar e ajustar o agente.' });
+  }
+  if (!$('mlConfig').hidden) {
+    passos.push({ alvo: '#mlConfig', antes: abreM, titulo: 'Configurações',
+      oque: 'Hoje tem um item: Instalar o app, que coloca o DG Claw como aplicativo na tela inicial do aparelho.',
+      como: 'No Android e no computador, com Chrome ou Edge, o toque abre o pedido de instalação do navegador. No iPhone e no iPad, o item mostra o caminho: Compartilhar e depois Adicionar à Tela de Início. O item some sozinho quando o app já está instalado.',
+      porque: 'O app instalado abre sem a barra do navegador e fica a um toque, como qualquer outro aplicativo.' });
   }
   passos.push({ alvo: '#loginCartao', titulo: 'Conectar a sua conta',
     antes: () => {

@@ -47,7 +47,7 @@
       tela(
         'Aqui você fala com ele',
         'Escreva embaixo e ele responde aqui em cima, como em qualquer conversa. Se ele também tiver Telegram, é a MESMA conversa: o que você mandar por lá aparece aqui, na ordem, e o contrário também.',
-        'Uma conversa só, e não uma por lugar. Se fossem duas, ele lembraria de metade do que vocês combinaram, dependendo de onde você tivesse falado.',
+        'Uma conversa só, e não uma por lugar. Se fossem duas, ele lembraria de metade do que vocês combinaram, dependendo de onde você tivesse falado. Quando o painel é aberto pela plataforma, a conversa é a tela principal do agente (o chat): o botão Conversa leva para lá, e o painel guarda as demais páginas dele.',
       ),
       {
         chave: 'sinal',

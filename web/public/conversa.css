@@ -326,18 +326,6 @@
         padding-top:env(safe-area-inset-top);
         padding-bottom:env(safe-area-inset-bottom)}
   aside#menu.abre{transform:translateX(0)}
-  aside#menu h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
-           margin:16px 16px 8px;font-weight:700}
-  .agentes{flex:1;overflow-y:auto}
-  .item{display:flex;align-items:center;gap:11px;padding:11px 16px;text-decoration:none;
-        color:var(--txt);min-height:58px;border-left:3px solid transparent}
-  .item.ativo{background:#f0f8f2;border-left-color:var(--accent)}
-  .item .av{width:38px;height:38px;flex:0 0 38px;font-size:16px;background:#2f9e5e}
-  .item b{display:block;font-size:15px;font-weight:600}
-  .item small{display:block;font-size:12.5px;color:var(--muted)}
-  .item .agora{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase}
-  .item .meio{flex:1;min-width:0}
-  .item .meio small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .av img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
   .pe{flex:0 0 auto;border-top:1px solid var(--line);padding:4px 8px 2px}
   .pe .conta{display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -386,29 +374,9 @@
   padding:12px 18px;font-weight:600;text-decoration:none;min-height:44px;box-sizing:border-box}
 .lbcorpo .vcard a.sec{background:#eef3ef;color:#1f7a47;margin-left:6px}
 
-/* ── Menu do DG Claw (gaveta do ☰) ──
-   Marca no topo, Conversa ativa, a lista de agentes (Admin primeiro), o painel
-   do agente e, no rodapé, o Sair. Tudo com prefixo gm-. */
-.gm-topo{display:flex;align-items:center;gap:8px;padding:12px 56px 6px 16px;min-height:48px}
-.gm-topo .gm-emoji{font-size:20px;line-height:1}
-.gm-topo b{font-size:15px;font-weight:700;color:var(--txt);white-space:nowrap}
-.gm-tut{margin-left:auto;min-height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);
+/* ── Menu do agente: o visual novo mora em menu-lado.css; aqui ficou só o botão Tutorial ── */
+.gm-tut{min-height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);
   background:#fff;color:#38523f;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
-.gm-conversa{padding:2px 8px 4px}
-.gm-item{display:flex;align-items:center;gap:11px;width:100%;box-sizing:border-box;min-height:48px;
-  padding:6px 10px;border:0;border-left:3px solid transparent;border-radius:8px;background:transparent;
-  color:var(--txt);text-decoration:none;text-align:left;font-family:inherit;cursor:pointer}
-.gm-item.ativo{background:#f0f8f2;border-left-color:var(--accent)}
-.gm-item:active{background:#f0f8f2}
-.gm-ic{flex:0 0 28px;font-size:20px;text-align:center;line-height:1}
-.gm-tx{min-width:0;flex:1}
-.gm-tx b{display:block;font-size:15px;font-weight:600}
-.gm-tx small{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gm-corpo{flex:0 1 auto;overflow-y:auto;border-top:1px solid var(--line);padding:2px 8px 6px}
-.gm-corpo:empty{display:none}
-.gm-sec h3{margin:10px 8px 4px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;
-  color:var(--muted);font-weight:700}
-.gm-sec[hidden]{display:none}
 .selo{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9px;background:#e3ece5;
   color:#38523f;font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
   vertical-align:middle}

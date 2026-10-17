@@ -272,31 +272,57 @@ loadPrevValues();
 let currentTab = 'conversa';
 const tabLoaded = {};
 
+// Sob a plataforma (BASE = "/p/<slug>") a tela principal do agente é a conversa do chat
+// (/a/<slug>) e este painel são as "páginas" dele. Painel solto tem BASE vazio: nada muda.
+const NA_PLATAFORMA = !!BASE;
+const SLUG_PLATAFORMA = (BASE.match(/^\/p\/([^/]+)/) || [])[1] || '';
+const URL_CONVERSA = SLUG_PLATAFORMA ? `/a/${SLUG_PLATAFORMA}` : '/';
+const ABAS_VALIDAS = [...document.querySelectorAll('.tab[data-tab]')].map((t) => t.dataset.tab);
+
+// Abre a aba: marca o botão, mostra o painel, carrega. Usado pelo clique e pelo deep link.
+function abrirAba(tab, botao) {
+  document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.remove('active'));
+  botao.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  currentTab = tab;
+  tituloDaAba(tab, botao);
+  loadPanel(tab);
+  // replaceState: trocar de aba não empilha histórico, e o link da barra fica compartilhável.
+  if (NA_PLATAFORMA) history.replaceState(null, '', `#aba=${tab}`);
+}
+
 document.getElementById('tabs').addEventListener('click', (e) => {
-  if (!e.target.classList.contains('tab')) return;
-  const tab = e.target.dataset.tab;
+  const botao = e.target.closest ? e.target.closest('.tab') : e.target;
+  if (!botao || !botao.classList.contains('tab')) return;
+  const tab = botao.dataset.tab;
   if (!tab) return;
 
   // Aba travada (poder não instalado): bloqueia troca e avisa.
-  if (e.target.classList.contains('locked')) {
-    const power = e.target.dataset.power;
+  if (botao.classList.contains('locked')) {
+    const power = botao.dataset.power;
     const label = POWER_LABELS[power] || power;
     showToast(`Poder ${label} não instalado`);
     return;
   }
 
-  // Update tabs
-  document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.remove('active'));
-  e.target.classList.add('active');
+  // Sob a plataforma a conversa é a tela principal do chat, não uma aba daqui.
+  if (NA_PLATAFORMA && tab === 'conversa') {
+    location.href = URL_CONVERSA;
+    return;
+  }
 
-  // Update panels
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById(`panel-${tab}`).classList.add('active');
-
-  currentTab = tab;
-  tituloDaAba(tab, e.target);
-  loadPanel(tab);
+  abrirAba(tab, botao);
 });
+
+// Aba pedida na URL (#aba=<chave>), só sob a plataforma. Sem hash: status.
+function abaInicialDaPlataforma() {
+  const m = location.hash.match(/^#aba=([^&]*)/);
+  const pedida = m ? decodeURIComponent(m[1]) : '';
+  if (pedida && pedida !== 'conversa' && ABAS_VALIDAS.includes(pedida)) return pedida;
+  if (pedida) console.warn(`[painel] aba "${pedida}" pedida em #aba= não existe aqui (ou é a conversa, que fica no chat). Abrindo status. Abas válidas: ${ABAS_VALIDAS.join(', ')}.`);
+  return 'status';
+}
 
 // Titulo e subtitulo da area principal: quem manda e a aba escolhida no menu.
 const SUBTITULO_ABA = {
@@ -2265,14 +2291,26 @@ async function initPowers() {
   // cabeçalho precisa nascer apontando para ela. Sem esta linha ele só apareceria
   // depois da primeira troca de aba, e quem entrasse e ficasse na Conversa nunca
   // veria que existe visita guiada.
-  atualizarBotaoTutorial('conversa');
+  const abaInicial = NA_PLATAFORMA ? abaInicialDaPlataforma() : 'conversa';
+  atualizarBotaoTutorial(abaInicial);
 
   // A saúde começa ANTES da conversa: é ela que decide se a faixa de aviso aparece
   // e, com ela, se o botão "acordar" fica ou sai. Não espero: a conversa não depende.
   atualizaSaude();
 
   // A Conversa abre por padrão: é o que a dona vem fazer aqui.
-  await loadPanel('conversa');
+  if (NA_PLATAFORMA) {
+    // A conversa fica no chat: aqui a tela de entrada é a aba pedida no link, ou status.
+    const botaoInicial = document.querySelector(`.tab[data-tab="${abaInicial}"]`);
+    if (botaoInicial && botaoInicial.classList.contains('locked')) {
+      console.warn(`[painel] aba "${abaInicial}" travada (poder não instalado). Abrindo status.`);
+      abrirAba('status', document.querySelector('.tab[data-tab="status"]'));
+    } else if (botaoInicial) {
+      abrirAba(abaInicial, botaoInicial);
+    }
+  } else {
+    await loadPanel('conversa');
+  }
   // O primeiro agente chega aqui pelo botão de conectar a assinatura no Admin.
   if (new URLSearchParams(location.search).get('aba') === 'status') {
     document.querySelector('.tab[data-tab="status"]')?.click();
@@ -2594,6 +2632,56 @@ function iniciarTema() {
 }
 
 /**
+ * Itens do seletor sob a plataforma. Cada agente usa a PRÓPRIA foto (avatar_img); sem foto,
+ * um círculo com a cor dele e a letra ou emoji. O link leva à conversa (/a/<id>), na mesma
+ * janela, porque a tela principal do agente é o chat.
+ */
+function htmlSeletorPlataforma(agentes, slugAtual, fotoAtual) {
+  return agentes.map((a) => {
+    const atual = a.id === slugAtual;
+    const rotulo = a.nome || a.id;
+    const cor = /^#[0-9a-fA-F]{3,8}$/.test(a.cor || '') ? a.cor : '#888';
+    const foto = atual && fotoAtual ? fotoAtual : a.avatar_img;
+    const imagem = foto
+      ? `<img src="${escapeHtml(foto)}" alt="" class="mini">`
+      : `<span class="mini" aria-hidden="true" style="background:${cor};color:#fff;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:600">${escapeHtml(a.avatar || rotulo.slice(0, 1).toUpperCase())}</span>`;
+    const miolo = `${imagem}
+      <span class="quem">${escapeHtml(rotulo)}<small>${escapeHtml(a.subtitulo || '')}</small></span>
+      ${atual ? '<span class="aqui">aqui</span>' : ''}`;
+    return atual
+      ? `<span class="item">${miolo}</span>`
+      : `<a href="/a/${encodeURIComponent(a.id)}">${miolo}</a>`;
+  }).join('');
+}
+
+/** Itens do seletor de um painel solto: cada agente com a foto que a rota trouxer. */
+function htmlSeletorLocal(agentes) {
+  return agentes.map(a => {
+    const nota = a.atual
+      ? [a.servico, a.emocoes ? 'com emoções' : null].filter(Boolean).join(' · ')
+      : (a.url ? [a.servico, a.emocoes ? 'com emoções' : null].filter(Boolean).join(' · ')
+               : 'o painel dele ainda não está instalado');
+    // Os OUTROS nunca usam o sprite padrao: assets/sprites/avatar.jpg e servido pela pasta
+    // DESTE painel, e quando o dono troca a foto dele e esse arquivo que muda. Usar o sprite
+    // nos outros fazia todos aparecerem com a cara do agente atual (Luna, 17/10/2026).
+    const padrao = BASE + '/assets/sprites/avatar.jpg';
+    const foto = a.atual ? (APP_CONFIG.avatar || padrao) : a.avatar_img;
+    const nome = a.nome || a.slug || '?';
+    const imagem = foto
+      ? `<img src="${escapeHtml(foto)}" alt="" class="mini">`
+      : `<span class="mini" aria-hidden="true" style="background:#888;color:#fff;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:600">${escapeHtml(nome.slice(0, 1).toUpperCase())}</span>`;
+    const miolo = `${imagem}
+      <span class="quem">${escapeHtml(a.nome || a.slug)}<small>${escapeHtml(nota)}</small></span>
+      ${a.atual ? '<span class="aqui">aqui</span>' : ''}`;
+    // Sem painel instalado nao ha pra onde ir: mostramos o agente, mas sem link morto.
+    return (a.atual || !a.url)
+      ? `<span class="item"${a.atual ? '' : ' style="opacity:.6"'}>${miolo}</span>`
+      : `<a href="${a.url}" target="_blank" rel="noopener">${miolo}</a>`;
+  }).join('') +
+  '<span class="item vazio">Cada agente tem o painel dele, numa porta própria. Abrir outro não desliga este.</span>';
+}
+
+/**
  * Seletor de agente: a maquina pode ter mais de um assistente, cada um com o seu painel.
  * Trocar aqui abre o painel do outro (porta dele), sem sair do lugar em que voce esta.
  * Se a rota /api/agents nao existir (painel mais antigo) ou vier so este, o seletor some.
@@ -2604,31 +2692,34 @@ async function iniciarSeletorDeAgentes() {
   if (!troca || !lista) return;
 
   let agentes = [];
+  let falha = '';
   try {
-    const r = await fetch(BASE + '/api/agents');
-    if (r.ok) agentes = (await r.json()).agents || [];
-  } catch { /* sem a rota, seguimos com um agente so */ }
+    // Sob a plataforma a lista vem da rota do chat (mesma origem, cookie já vale), com a foto
+    // de cada agente. Fora dela, da rota do próprio painel.
+    const url = NA_PLATAFORMA ? '/api/v1/agents' : BASE + '/api/agents';
+    const r = await fetch(url, { credentials: 'include' });
+    // A rota do chat devolve `agentes`; a do painel, `agents`.
+    if (r.ok) { const d = await r.json(); agentes = (NA_PLATAFORMA ? d.agentes : d.agents) || []; }
+    else if (NA_PLATAFORMA) falha = `A lista de agentes respondeu ${r.status}.`;
+  } catch (e) {
+    if (NA_PLATAFORMA) falha = `Não consegui buscar a lista de agentes (${e.message}).`;
+  }
 
-  // O seletor nasce escondido no HTML (ver o comentário lá): aqui ele só é
-  // REVELADO, e apenas quando existe de fato outro painel para onde ir.
-  if (agentes.length < 2) { troca.style.display = 'none'; return; }
-  troca.style.display = '';
-
-  lista.innerHTML = agentes.map(a => {
-    const nota = a.atual
-      ? [a.servico, a.emocoes ? 'com emoções' : null].filter(Boolean).join(' · ')
-      : (a.url ? [a.servico, a.emocoes ? 'com emoções' : null].filter(Boolean).join(' · ')
-               : 'o painel dele ainda não está instalado');
-    const foto = a.atual ? (APP_CONFIG.avatar || BASE + '/assets/sprites/avatar.jpg') : BASE + '/assets/sprites/avatar.jpg';
-    const miolo = `<img src="${foto}" alt="" class="mini">
-      <span class="quem">${escapeHtml(a.nome || a.slug)}<small>${escapeHtml(nota)}</small></span>
-      ${a.atual ? '<span class="aqui">aqui</span>' : ''}`;
-    // Sem painel instalado nao ha pra onde ir: mostramos o agente, mas sem link morto.
-    return (a.atual || !a.url)
-      ? `<span class="item"${a.atual ? '' : ' style="opacity:.6"'}>${miolo}</span>`
-      : `<a href="${a.url}" target="_blank" rel="noopener">${miolo}</a>`;
-  }).join('') +
-  '<span class="item vazio">Cada agente tem o painel dele, numa porta própria. Abrir outro não desliga este.</span>';
+  if (falha) {
+    console.error(`[painel] seletor de agentes: ${falha}`);
+    troca.style.display = '';
+    lista.innerHTML = `<span class="item vazio">${escapeHtml(falha)} Recarregue a página para tentar de novo.</span>`;
+  } else if (agentes.length < 2) {
+    // O seletor nasce escondido no HTML: aqui ele só é REVELADO, e apenas quando existe
+    // de fato outro agente para onde ir.
+    troca.style.display = 'none';
+    return;
+  } else {
+    troca.style.display = '';
+    lista.innerHTML = NA_PLATAFORMA
+      ? htmlSeletorPlataforma(agentes, SLUG_PLATAFORMA, APP_CONFIG.avatar)
+      : htmlSeletorLocal(agentes);
+  }
 
   document.getElementById('btn-troca')?.addEventListener('click', (e) => {
     e.stopPropagation();

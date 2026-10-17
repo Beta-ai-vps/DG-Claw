@@ -76,5 +76,5 @@ test('onboarding.css: z-index do modal, celular e movimento reduzido', () => {
 test('conversa.js usa o marcador só fora do dono, e o service worker subiu de versão', () => {
   const cj = lê('conversa.js');
   assert.match(cj, /!ehDono\(m\) && window\.DGOnboarding && window\.DGOnboarding\.marcadorParaBotao/);
-  assert.match(lê('sw.js'), /dgclaw-estaticos-v12/);
+  assert.match(lê('sw.js'), /dgclaw-estaticos-v13/);
 });
