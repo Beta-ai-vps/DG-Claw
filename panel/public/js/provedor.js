@@ -86,8 +86,9 @@
       if (d.auth === 'assinatura') {
         return {
           texto: 'o agente não está logado na assinatura',
-          fazer: 'Clique em "Entrar com a assinatura" e siga os passos que aparecem aqui.',
+          fazer: 'Clique em "Conectar minha conta" e siga os passos que aparecem aqui.',
           detalhe: c.detalhe,
+          curto: true,
         };
       }
       return {
@@ -133,7 +134,12 @@
     conf.textContent = div ? (d.conferido && d.conferido.em ? `${hora}: ${div.texto}` : div.texto) : hora;
 
     const av = $('prov-aviso');
-    if (div) {
+    if (div && div.curto) {
+      // Aviso de uma ou duas linhas: no celular o botão de conectar tem que ficar na primeira tela.
+      av.hidden = false;
+      av.innerHTML = '<div class="prov-aviso-curto">Seu agente ainda não está ligado a uma inteligência artificial. Toque no botão abaixo e conecte sua conta.</div>'
+        + `<details class="prov-entenda"><summary>Entenda</summary><p>${esc(div.fazer)}${div.detalhe ? ` <span class="prov-detalhe">(${esc(div.detalhe)})</span>` : ''}</p></details>`;
+    } else if (div) {
       av.hidden = false;
       av.innerHTML = `${esc(div.fazer)}${div.detalhe ? ` <span class="prov-detalhe">(${esc(div.detalhe)})</span>` : ''}`;
     } else {
@@ -144,6 +150,11 @@
     $('prov-trocar').hidden = false;
     const precisaEntrar = d.auth === 'assinatura' && d.conferido && d.conferido.ok === false;
     $('prov-entrar').hidden = !precisaEntrar;
+    $('prov-entrar').textContent = 'Conectar minha conta';
+    // Na página do Status, o aviso vermelho grande do topo cede lugar ao cartão do provedor.
+    const painel = document.getElementById('panel-status');
+    if (painel) painel.classList.toggle('prov-entrar-pendente', !!precisaEntrar);
+    avisarSucesso(d, precisaEntrar);
 
     const est = d.login && d.login.estado;
     if (est && est !== 'nenhum' && est !== 'concluido') {
@@ -151,6 +162,37 @@
       iniciarPolling();
     } else if (!timerLogin) {
       $('prov-login').hidden = true;
+    }
+  }
+
+  // Estado anterior: true = precisava entrar, false = já estava logado, null = ainda não sei.
+  let estavaPendente = null;
+  const CHAVE_LOGIN = 'dgclaw-login-iniciado';
+
+  function avisarSucesso(d, precisaEntrar) {
+    const logado = d.auth === 'assinatura' && d.conferido && d.conferido.ok === true;
+    let iniciado = false;
+    try { iniciado = sessionStorage.getItem(CHAVE_LOGIN) === '1'; } catch { /* sem sessionStorage */ }
+    // Passou de "não logado" para "logado" nesta página, ou a pessoa começou o login,
+    // saiu para a página do provedor e a tela recarregou ao voltar.
+    if (logado && (estavaPendente === true || iniciado)) {
+      const ok = $('prov-sucesso');
+      if (ok) { ok.hidden = false; ok.textContent = 'Sucesso, o agente foi conectado.'; }
+      try { sessionStorage.removeItem(CHAVE_LOGIN); } catch { /* ignora */ }
+    } else if (precisaEntrar) {
+      const ok = $('prov-sucesso');
+      if (ok) ok.hidden = true;
+    }
+    estavaPendente = precisaEntrar ? true : (logado ? false : estavaPendente);
+  }
+
+  /** Abrindo com ?aba=status e precisando entrar: leva o botão de conectar para a vista. */
+  function mostrarBotaoSeNecessario() {
+    const b = $('prov-entrar');
+    if (b && !b.hidden && new URLSearchParams(location.search).get('aba') === 'status') {
+      const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const cartao = b.closest('.prov-cartao') || b;
+      cartao.scrollIntoView({ block: 'start', behavior: reduz ? 'auto' : 'smooth' });
     }
   }
 
@@ -164,6 +206,7 @@
     }
     dados = r.corpo;
     desenhar();
+    mostrarBotaoSeNecessario();
   }
 
   // ── o login assistido ────────────────────────────────────────────────────
@@ -196,7 +239,7 @@
         + '<p class="prov-fraco">Esta tela confere sozinha a cada 2 segundos e avisa quando o login terminar.</p>';
     } else if (l.estado === 'falhou') {
       corpo = `<p class="prov-erro">O login não deu certo${l.mensagem ? ': ' + esc(l.mensagem) : '.'}</p>`
-        + '<p>Clique em "Entrar com a assinatura" para tentar de novo.</p>';
+        + '<p>Clique em "Conectar minha conta" para tentar de novo.</p>';
     } else {
       corpo = `<p>${esc(l.estado)}</p>`;
     }
@@ -258,7 +301,8 @@
       box.hidden = false;
       box.innerHTML = '<p class="prov-ok">Login feito. Conferindo o agente...</p>';
       await carregar();
-      setTimeout(() => { if (!timerLogin) fecharLogin(); }, 2500);
+      // Com o estado já conferido, a caixa verde de sucesso toma o lugar da mensagem.
+      if (!timerLogin) fecharLogin();
     } else if (l.estado === 'falhou') {
       pararPolling();
       desenharLogin(l);
@@ -286,6 +330,7 @@
       box.innerHTML = `<p class="prov-erro">${esc(r.corpo.error || 'Não consegui começar o login.')} ${esc(r.corpo.howToFix || '')}</p>`;
       return;
     }
+    try { sessionStorage.setItem(CHAVE_LOGIN, '1'); } catch { /* ignora */ }
     desenharLogin(r.corpo && r.corpo.estado ? r.corpo : { estado: 'aguardando_link' });
     iniciarPolling();
   }
@@ -453,6 +498,11 @@
     t.addEventListener('click', abrirJanela);
     $('prov-entrar').addEventListener('click', entrar);
   }
+
+  // Voltou para a aba (ex.: veio da página de login do provedor): confere de novo.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && dados) carregar();
+  });
 
   document.addEventListener('DOMContentLoaded', ligar);
   if (document.readyState !== 'loading') ligar();

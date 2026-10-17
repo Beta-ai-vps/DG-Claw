@@ -29,6 +29,8 @@ const FIXOS = {
   testando: [92, 'Esperando o primeiro oi do agente'],
   pronto: [100, 'Pronto! Seu agente chegou'],
 };
+// Marco seguinte de cada fase fixa (a imagem e a criação calculam o seu pelo passo).
+const PROXIMOS = { enviando: FIXOS.solicitado[0], solicitado: FAIXA_IMAGEM[1], login: FIXOS.testando[0], testando: FIXOS.pronto[0], pronto: 100 };
 const ETAPA_IMAGEM = 'Preparando a imagem dos agentes (só na primeira vez, leva alguns minutos)';
 // Ordem e títulos de `dgclaw agente criar` (bin/dgclaw). O texto do log vem sem acento.
 const ETAPAS = [
@@ -165,15 +167,17 @@ function criarOnboarding({ config, registro, conversa, midia, log = () => {}, im
     const emErro = p.fase === 'erro' || p.fase === 'erro-envio';
     const fase = p.fase === 'erro-envio' ? 'enviando' : p.fase === 'erro' ? (p.ultimaFase || (criacao.idx >= 0 ? 'criando' : 'solicitado')) : p.fase;
     const construindo = ['active', 'activating'].includes(cacheImagem.estado), falhou = cacheImagem.estado === 'failed';
-    let pct, etapa, passo = null, total = null, erroImg = null;
+    let pct, etapa, passo = null, total = null, erroImg = null, proximo = null;
     if (fase === 'criando' && (criacao.idx >= 0 || !construindo)) {
       pct = sobe(FAIXA_CRIACAO, criacao.idx < 0 ? 0 : criacao.idx / ETAPAS.length);
+      proximo = criacao.idx + 1 >= ETAPAS.length ? FIXOS.login[0] : sobe(FAIXA_CRIACAO, (criacao.idx + 1) / ETAPAS.length);
       etapa = criacao.idx < 0 ? 'Preparando a criação do agente' : ETAPAS[criacao.idx][1];
       if (criacao.idx >= 0) { passo = criacao.idx + 1; total = ETAPAS.length; }
     } else if (fase === 'solicitado' || fase === 'criando') {
       if (construindo) {
         const im = lerImagem(lerFim(logImagem, log));
         pct = im.m ? sobe(FAIXA_IMAGEM, im.n / im.m) : FAIXA_IMAGEM[0]; etapa = ETAPA_IMAGEM;
+        proximo = im.m ? sobe(FAIXA_IMAGEM, (im.n + 1) / im.m) : FAIXA_IMAGEM[1];
         if (im.m) { passo = im.n; total = im.m; }
       } else if (falhou && fase === 'solicitado') {
         const im = lerImagem(lerFim(logImagem, log));
@@ -183,12 +187,16 @@ function criarOnboarding({ config, registro, conversa, midia, log = () => {}, im
     } else [pct, etapa] = FIXOS[fase] || FIXOS.solicitado;
     pct = Math.max(pct, maximos.get(p.id) || 0);
     maximos.set(p.id, pct);
+    // Próximo marco real: a tela anda devagar até perto dele enquanto a etapa não muda.
+    if (proximo == null) proximo = PROXIMOS[fase] ?? pct;
+    proximo = Math.max(pct, Math.min(100, proximo));
     let erro = erroImg;
     if (emErro) {
       erro = { motivo: limpar((fase === 'criando' && criacao.falha && criacao.falha.motivo) || p.motivo || p.mensagem) || 'A preparação parou sem detalhes.',
         oQueFazer: (fase === 'criando' && criacao.falha && criacao.falha.oQueFazer) || null };
     }
-    return { pct, etapa, passo, total, erro };
+    if (erro) proximo = pct;
+    return { pct, etapa, passo, total, erro, proximo };
   }
   // Cartão estático do histórico: um por criação cuja animação já foi exibida (em qualquer aparelho).
   function cartoes() {

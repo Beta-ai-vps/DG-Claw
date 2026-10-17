@@ -1080,7 +1080,10 @@ function htmlCorpo(m) {
     leg = dv.texto;
     doVisual = `<div class="dovisual">📊 do visual${dv.titulo ? ': ' + esc(dv.titulo) : ''}</div>`;
   }
-  const corpo = leg ? doVisual + paragrafos(leg, m.fmt) : doVisual;
+  // [ver a criação] só vira botão em mensagem de quem não é o dono (o texto já sai escapado de paragrafos)
+  let htmlLeg = leg ? paragrafos(leg, m.fmt) : '';
+  if (htmlLeg && !ehDono(m) && window.DGOnboarding && window.DGOnboarding.marcadorParaBotao) htmlLeg = window.DGOnboarding.marcadorParaBotao(htmlLeg);
+  const corpo = leg ? doVisual + htmlLeg : doVisual;
   const reac = (m.reacoes && m.reacoes.length)
     ? `<span class="reac">${m.reacoes.map(esc).join(' ')}</span>` : '';
   const meta = m.pendente ? metaPendente(m.local)

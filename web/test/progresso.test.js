@@ -35,6 +35,8 @@ test('percentual e etapa por fase, sem diminuir dentro do mesmo pedido', async t
     const pr = await ver();
     assert.equal(pr.pct, pct, fase); assert.match(pr.etapa, new RegExp(texto)); assert.equal(pr.erro, null);
     assert.ok(pr.pct >= anterior); anterior = pr.pct;
+    // o próximo marco nunca fica atrás do atual; fora do pronto, fica à frente
+    assert.ok(pr.proximo >= pr.pct, fase); if (fase !== 'pronto') assert.ok(pr.proximo > pr.pct, fase);
   }
   db.gravar({ ...base, fase: 'solicitado', mensagem: '' });
   assert.equal((await ver()).pct, 100);

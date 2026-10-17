@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { chaveFalsa, ctxDeTeste, pastaTemporaria } from "./apoio-teste.js";
-import { arquivoClaudeJson, confiarNaPasta, dicaDeLogin, motorClaude, preAprovarChaveDeApi } from "./provedores/claude.js";
+import { arquivoClaudeJson, confiarNaPasta, dicaDeLogin, motorClaude, preAprovarChaveDeApi, pularPrimeiraExecucao } from "./provedores/claude.js";
 
 test("pré-aprovação: grava os ÚLTIMOS 20 caracteres, é idempotente e preserva o resto do JSON", () => {
   const dir = pastaTemporaria("claudejson");
@@ -55,6 +55,41 @@ test("confiarNaPasta marca a casa uma vez só e preserva o JSON", () => {
   confiarNaPasta("/casa/x", { CLAUDE_CONFIG_DIR: dir }, "spawn");
   const o = JSON.parse(fs.readFileSync(path.join(dir, ".claude.json"), "utf8"));
   assert.deepEqual(o, { a: 1, projects: { "/casa/x": { hasTrustDialogAccepted: true } } });
+});
+
+test("pularPrimeiraExecucao: arquivo inexistente vira objeto com as chaves", () => {
+  const dir = pastaTemporaria("primeira");
+  pularPrimeiraExecucao("/casa/x", { CLAUDE_CONFIG_DIR: dir }, "spawn");
+  const o = JSON.parse(fs.readFileSync(path.join(dir, ".claude.json"), "utf8"));
+  assert.deepEqual(o, {
+    hasCompletedOnboarding: true,
+    theme: "dark",
+    projects: { "/casa/x": { hasCompletedProjectOnboarding: true, projectOnboardingSeenCount: 1 } },
+  });
+  assert.deepEqual(fs.readdirSync(dir), [".claude.json"], "nenhum temporário sobra");
+});
+
+test("pularPrimeiraExecucao: preserva o resto, não troca theme nem contador e é idempotente", () => {
+  const dir = pastaTemporaria("primeira2");
+  const arq = path.join(dir, ".claude.json");
+  fs.writeFileSync(arq, JSON.stringify({ a: 1, theme: "light", projects: { "/casa/x": { hasTrustDialogAccepted: true, projectOnboardingSeenCount: 4 } } }));
+  fs.chmodSync(arq, 0o640);
+  const env = { CLAUDE_CONFIG_DIR: dir };
+  pularPrimeiraExecucao("/casa/x", env, "spawn");
+  const o = JSON.parse(fs.readFileSync(arq, "utf8"));
+  assert.deepEqual(o, {
+    a: 1,
+    theme: "light",
+    hasCompletedOnboarding: true,
+    projects: { "/casa/x": { hasTrustDialogAccepted: true, projectOnboardingSeenCount: 4, hasCompletedProjectOnboarding: true } },
+  });
+  assert.equal(fs.statSync(arq).mode & 0o777, 0o640, "o modo do arquivo é preservado");
+  const bytes = fs.readFileSync(arq);
+  const mtime = fs.statSync(arq).mtimeMs;
+  pularPrimeiraExecucao("/casa/x", env, "spawn");
+  assert.deepEqual(fs.readFileSync(arq), bytes);
+  assert.equal(fs.statSync(arq).mtimeMs, mtime, "a segunda vez não regrava");
+  assert.deepEqual(fs.readdirSync(dir), [".claude.json"]);
 });
 
 test("args da sessão nova: --session-id, permissão, settings, mcp, identidade, modelo", () => {

@@ -110,7 +110,7 @@
         chave: 'modelo-trocar',
         alvo: '#prov-trocar',
         titulo: 'Trocar o modelo, o provedor ou a forma de pagar',
-        corpo: 'Abre uma janela com três escolhas: o provedor (Claude ou Codex), o modelo e a forma de pagar, cada uma com uma explicação embaixo. Se você escolher pagar pela API e o Cofre ainda não tiver a chave, a janela pede a chave ali mesmo e a guarda no Cofre; ela não aparece mais depois. Ao confirmar, o agente reinicia: a conversa atual fecha e ele volta numa conversa nova, com a memória intacta. Quando ele não está logado na assinatura, aparece também o botão "Entrar com a assinatura", que mostra o link e o código, sem você abrir terminal.',
+        corpo: 'Abre uma janela com três escolhas: o provedor (Claude ou Codex), o modelo e a forma de pagar, cada uma com uma explicação embaixo. Se você escolher pagar pela API e o Cofre ainda não tiver a chave, a janela pede a chave ali mesmo e a guarda no Cofre; ela não aparece mais depois. Ao confirmar, o agente reinicia: a conversa atual fecha e ele volta numa conversa nova, com a memória intacta. Quando ele não está logado na assinatura, aparece também o botão "Conectar minha conta", que mostra o link e o código, sem você abrir terminal.',
         porque: 'Trocar de modelo muda o custo e o jeito de pensar do agente, então a janela explica cada opção antes de você confirmar, e avisa do reinício. Sem esse aviso, a conversa em andamento pareceria ter sumido sem motivo.',
       },
       {

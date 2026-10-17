@@ -10,10 +10,10 @@
 
 /* Barra de progresso real: largura é o único movimento; sem transição quando o sistema pede menos movimento. */
 .nas-prog{margin:4px 0 14px;min-height:92px}.nas-prog-topo{display:flex;align-items:baseline;gap:12px}.nas-pct{font-size:34px;line-height:1;font-weight:750;color:var(--nas-verde);font-variant-numeric:tabular-nums;min-width:3.4ch}.nas-etapa{font-size:15px;line-height:1.4;color:#253b30;min-width:0;overflow-wrap:anywhere}
-.nas-trilho{height:12px;margin-top:10px;border-radius:99px;background:#dfe8dc;overflow:hidden}.nas-barra{height:100%;width:0;border-radius:99px;background:var(--nas-verde);transition:width .5s linear}
+.nas-trilho{height:12px;margin-top:10px;border-radius:99px;background:#dfe8dc;overflow:hidden}.nas-barra{position:relative;overflow:hidden;height:100%;width:0;border-radius:99px;background:var(--nas-verde);transition:width .3s linear}.nas-barra:after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(115deg,transparent 0 12px,#ffffff2e 12px 24px);background-size:34px 100%;opacity:0}.nas-prog[data-anda="1"] .nas-barra:after{opacity:1;animation:nasListras 1.6s linear infinite}@keyframes nasListras{to{background-position:34px 0}}
 .nas-prog[data-estado=erro] .nas-pct{color:#8d3025}.nas-prog[data-estado=erro] .nas-barra{background:#b4402f}
-.nas-prog-erro{margin-top:10px;padding:12px;border-radius:10px;background:#fff1ec;color:#8d3025;font-size:15px;line-height:1.5;overflow-wrap:anywhere}.nas-prog-erro[hidden]{display:none}.nas-prog-erro b,.nas-prog-erro span{display:block}.nas-prog-erro span{margin-top:4px}
-@media(prefers-reduced-motion:reduce){.nas-barra{transition:none}}
+.nas-prog-erro{margin-top:10px;padding:12px;border-radius:10px;background:#fff1ec;color:#8d3025;font-size:15px;line-height:1.5;overflow-wrap:anywhere}.nas-prog-erro[hidden]{display:none}.nas-prog-erro b,.nas-prog-erro span{display:block}.nas-prog-erro span{margin-top:4px;font-size:13px;line-height:1.4}.nas-prog-erro b,.nas-prog-erro span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}.nas-prog-erro b{-webkit-line-clamp:2;line-clamp:2}
+@media(prefers-reduced-motion:reduce){.nas-barra{transition:none}.nas-barra:after{display:none}}
 @media(max-width:600px){.nas-pct{font-size:30px}}
 
 /* Cartão estático do histórico: mesma caixa aberta, sem animação nem inclinação. */
@@ -21,3 +21,29 @@
 
 .nas-cx{position:relative}.nas-hist .nas-cx{width:100%;max-width:340px}.nas-cx>.nas-x{position:absolute;top:6px;right:6px;z-index:2;width:36px;height:36px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:#ffffffb3;color:#25452f;font:inherit;font-size:22px;line-height:1;cursor:pointer;transition:background .15s}.nas-cx>.nas-x:hover{background:#e3eddd}.nas-cx>.nas-x:focus-visible{outline:3px solid #477553;outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.nas-cx>.nas-x{transition:none}}
+
+/* Modal de criação: fora do #chat, então mensagem nova não mexe nele. Acima da barra (22), das faixas (30/31),
+   da pílula (32) e do menu (40/41); abaixo do tutorial (90 a 92), que continua funcionando por cima. */
+body.nas-modal-aberto{overflow:hidden}
+.nas-modal{position:fixed;inset:0;z-index:80;background:rgba(10,24,16,.55);display:flex;align-items:center;justify-content:center;animation:nasModalFade .15s ease-out both}
+.nas-modal[hidden]{display:none}
+.nas-caixa{position:relative;display:flex;flex-direction:column;width:min(560px,calc(100% - 32px));max-width:100%;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);background:linear-gradient(145deg,#fffefa,#f0f5ee);border-radius:24px;box-shadow:0 20px 60px #0a18104d;overflow:hidden;box-sizing:border-box}
+.nas-caixa:focus{outline:none}
+.nas-rolo{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;max-width:100%}
+.nas-caixa .nascimento{margin:0;max-width:none;border:0;border-radius:0;box-shadow:none;overflow:visible;background:none}
+.nas-caixa .nas-topo{padding-right:28px}
+.nas-caixa input,.nas-caixa select,.nas-caixa textarea{max-width:100%}
+.nas-fechar{position:absolute;top:8px;right:8px;z-index:3;width:44px;height:44px;min-width:44px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:#ffffffd9;color:#25452f;font:inherit;font-size:28px;line-height:1;cursor:pointer;touch-action:manipulation}
+.nas-fechar:hover{background:#e3eddd}.nas-fechar:focus-visible{outline:3px solid #418b67;outline-offset:2px}
+.nas-pilula{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--barra-h) + 10px);z-index:32;min-height:40px;padding:8px 16px;max-width:calc(100% - 32px);border:0;border-radius:999px;background:#24694c;color:#fff;font:inherit;font-size:14px;font-weight:650;box-shadow:0 6px 18px #0a181040;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;touch-action:manipulation}
+.nas-pilula[hidden]{display:none}.nas-pilula:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.nas-reabrir{display:inline-flex;align-items:center;min-height:36px;padding:6px 12px;margin-top:6px;max-width:100%;border:1px solid #24694c;border-radius:10px;background:transparent;color:#24694c;font:inherit;font-size:14px;line-height:1.35;text-align:left;white-space:normal;cursor:pointer;touch-action:manipulation}
+.nas-reabrir:focus-visible{outline:3px solid #418b67;outline-offset:2px}
+@keyframes nasModalFade{from{opacity:0}to{opacity:1}}
+@keyframes nasModalSobe{from{transform:translateY(24px)}to{transform:none}}
+@media(max-width:600px){
+  .nas-modal{align-items:flex-end}
+  .nas-caixa{width:100%;height:calc(100vh - 12px);height:calc(100dvh - 12px - env(safe-area-inset-top));max-height:none;border-radius:20px 20px 0 0;padding-bottom:env(safe-area-inset-bottom);animation:nasModalSobe .2s ease-out both}
+  .nas-caixa .nas-topo{padding-right:36px}
+}
+@media(prefers-reduced-motion:reduce){.nas-modal,.nas-caixa{animation:none!important;transition:none!important}.nas-pilula{transition:none}}

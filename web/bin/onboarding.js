@@ -19,7 +19,7 @@ async function executar(acao, id, op = {}) {
   const lock = path.join(db.dir, id + '.lock');
   let fd;
   try { fd = fs.openSync(lock, 'wx', 0o600); } catch (e) {
-    if (e.code === 'EEXIST') throw new Error('Este pedido já está sendo executado. Confira o processo antes de tentar outra vez.');
+    if (e.code === 'EEXIST') throw new Error('Este pedido já está em andamento. Aguarde um pouco e tente de novo.');
     throw e;
   }
   fs.writeFileSync(fd, String(process.pid));
@@ -40,30 +40,49 @@ async function executar(acao, id, op = {}) {
             proc.once('exit', (code) => resolve(code));
           });
         } finally { fs.closeSync(logFd); }
-        if (codigo !== 0) throw new Error('A criação parou. Confira o registro privado do pedido, resolva a causa e execute criar com o mesmo id.');
+        if (codigo !== 0) throw new Error('A criação parou. O Admin vai conferir o registro e retomar.');
       }
-      if (!web.registro.obter(p.slug)) throw new Error('A criação terminou sem cadastrar o agente. Confira o registro antes de continuar.');
+      if (!web.registro.obter(p.slug)) throw new Error('A criação não terminou direito. O Admin vai conferir o registro e retomar.');
       mudar('login', 'Seu agente foi criado. Entre com sua assinatura no painel dele para ligar a conversa. Depois volte aqui e avise o Admin.');
       return p;
     }
     const agente = web.registro.obter(p.slug);
-    if (!agente || agente.tipo === 'admin') throw new Error('O agente ainda não foi cadastrado. Execute criar primeiro.');
+    if (!agente || agente.tipo === 'admin') throw new Error('Seu agente ainda não foi criado. O Admin precisa criar ele primeiro.');
     mudar('testando', 'Conferindo se o seu agente consegue responder.');
-    const antes = new Set((await web.conversa.thread(agente)).msgs.map(m => m.id));
-    const envio = await web.conversa.enviar(agente, { text: 'Oi! Sou ' + p.dono + '. Acabei de te criar. Me cumprimente pelo nome, se apresente brevemente e ofereça começar nossas atividades ou configurar Telegram e outras conexões.' });
-    if (envio.status >= 300) throw new Error('O agente não recebeu o teste. Confira o login e a conexão dele.');
-    const fim = Date.now() + (op.esperaMs || 60000);
-    do {
-      const thread = await web.conversa.thread(agente);
-      const resposta = thread.msgs.find(m => m.origin === 'agente' && !antes.has(m.id) && m.ep >= envio.corpo.ep_enviado - 1);
-      if (resposta) {
-        p.respostaId = resposta.id;
-        mudar('pronto', 'Seu agente respondeu e está pronto para conversar.');
-        return p;
-      }
-      await new Promise(r => setTimeout(r, op.intervaloMs || 1500));
-    } while (Date.now() < fim);
-    throw new Error('O agente ainda não respondeu. Confira o login dele e execute testar novamente.');
+    const TEXTO_OI = 'Oi! Sou ' + p.dono + '. Acabei de te criar. Me cumprimente pelo nome, se apresente brevemente e me ofereça estas opções, numeradas e nesta ordem: 1. Conectar o Grok, para conversarmos por áudio. 2. Conectar o Gmail. 3. Mão na massa: começar logo uma tarefa. 4. Conectar a API do Gemini no modo gratuito, para você me ajudar com análise de vídeo. Canais e conexões que ainda não configuramos não são falha: não fale de erro deles.';
+    // Envia o oi e espera a resposta. A resposta só conta se for nova em relação ao que existia antes deste envio.
+    const tentar = async () => {
+      const antes = new Set((await web.conversa.thread(agente)).msgs.map(m => m.id));
+      const envio = await web.conversa.enviar(agente, { text: TEXTO_OI });
+      if (envio.status >= 300) throw new Error('Seu agente não recebeu a mensagem de teste. O Admin vai conferir a conexão dele.');
+      const fim = Date.now() + (op.esperaMs || 60000);
+      do {
+        const thread = await web.conversa.thread(agente);
+        const resposta = thread.msgs.find(m => m.origin === 'agente' && !antes.has(m.id) && m.ep >= envio.corpo.ep_enviado - 1);
+        if (resposta) return resposta;
+        await new Promise(r => setTimeout(r, op.intervaloMs || 1500));
+      } while (Date.now() < fim);
+      return null;
+    };
+    let resposta = await tentar();
+    if (!resposta) {
+      // O container pode ter subido antes do login terminar: reinicia uma vez e tenta de novo.
+      mudar('testando', 'Seu agente ligou antes do login terminar. Estou reiniciando ele para pegar a sua conta.');
+      const codigo = await new Promise((resolve, reject) => {
+        const proc = (op.spawn || spawn)(op.cli || '/usr/local/bin/dgclaw', ['agente', 'reiniciar', p.slug], { stdio: 'ignore', shell: false });
+        proc.once('error', reject);
+        proc.once('exit', (code) => resolve(code));
+      });
+      if (codigo !== 0) throw new Error('Não consegui reiniciar o seu agente. O Admin vai conferir e tentar de novo.');
+      await new Promise(r => setTimeout(r, op.reinicioMs ?? 8000));
+      resposta = await tentar();
+    }
+    if (resposta) {
+      p.respostaId = resposta.id;
+      mudar('pronto', 'Seu agente respondeu e está pronto para conversar.');
+      return p;
+    }
+    throw new Error('Seu agente ainda não respondeu. Confira se a sua conta foi conectada no painel dele e peça ao Admin para testar de novo.');
   } catch (e) {
     mudar('erro', 'A preparação precisa de atenção. O Admin vai conferir o que aconteceu; seus dados continuam guardados.', { motivo: e.message });
     throw e;

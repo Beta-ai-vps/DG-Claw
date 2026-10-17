@@ -70,8 +70,30 @@ test('status de processo ou resposta antiga não conclui o teste do agente',asyn
   const db=loja(web.dados),p=db.ler(pedido.id);
   const registro={obter:()=>({slug:p.slug,tipo:'agente'})};
   const faux={...web.web,registro,conversa:{enviar:async()=>({status:200,corpo:{ep_enviado:100}}),thread:async()=>({msgs:[{id:'antiga',origin:'agente',ep:1}]})}};
-  await assert.rejects(executar('testar',pedido.id,{web:faux,esperaMs:10,intervaloMs:1}),/ainda não respondeu/);
+  const {EventEmitter}=require('node:events');const chamadas=[];
+  const spawnFalso=(bin,args)=>{chamadas.push(args);const e=new EventEmitter();setImmediate(()=>e.emit('exit',0));return e;};
+  await assert.rejects(executar('testar',pedido.id,{web:faux,esperaMs:10,intervaloMs:1,reinicioMs:1,spawn:spawnFalso}),/ainda não respondeu/);
+  assert.deepEqual(chamadas,[['agente','reiniciar',p.slug]]);
   assert.equal(db.ler(pedido.id).fase,'erro');assert.ok(!fs.existsSync(path.join(db.dir,pedido.id+'.lock')));
+});
+test('agente que só responde depois do reinício termina em pronto',async t=>{
+  const {web}=await cenario(t);await web.login();await web.c.post('/api/v1/onboarding',{json:pedido});
+  const db=loja(web.dados),p=db.ler(pedido.id);
+  const registro={obter:()=>({slug:p.slug,tipo:'agente'})};
+  const {EventEmitter}=require('node:events');
+  let reiniciou=false,envios=0;const chamadas=[];
+  const spawnFalso=(bin,args)=>{chamadas.push(args);reiniciou=true;const e=new EventEmitter();setImmediate(()=>e.emit('exit',0));return e;};
+  const faux={...web.web,registro,conversa:{enviar:async()=>{envios++;return{status:200,corpo:{ep_enviado:100*envios}};},thread:async()=>({msgs:reiniciou&&envios>=2?[{id:'antiga',origin:'agente',ep:1},{id:'nova',origin:'agente',ep:200}]:[{id:'antiga',origin:'agente',ep:1}]})}};
+  const r=await executar('testar',pedido.id,{web:faux,esperaMs:10,intervaloMs:1,reinicioMs:1,spawn:spawnFalso});
+  assert.equal(r.fase,'pronto');assert.equal(r.respostaId,'nova');assert.equal(envios,2);
+  assert.deepEqual(chamadas,[['agente','reiniciar',p.slug]]);
+});
+test('reinício que falha vira mensagem clara',async t=>{
+  const {web}=await cenario(t);await web.login();await web.c.post('/api/v1/onboarding',{json:pedido});
+  const p=loja(web.dados).ler(pedido.id);const {EventEmitter}=require('node:events');
+  const faux={...web.web,registro:{obter:()=>({slug:p.slug,tipo:'agente'})},conversa:{enviar:async()=>({status:200,corpo:{ep_enviado:100}}),thread:async()=>({msgs:[]})}};
+  const spawnFalso=()=>{const e=new EventEmitter();setImmediate(()=>e.emit('exit',1));return e;};
+  await assert.rejects(executar('testar',pedido.id,{web:faux,esperaMs:5,intervaloMs:1,reinicioMs:1,spawn:spawnFalso}),/reiniciar o seu agente/);
 });
 
 test('pedido corrompido não derruba a lista nem o chat dos agentes',async t=>{

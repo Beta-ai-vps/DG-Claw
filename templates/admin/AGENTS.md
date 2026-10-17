@@ -129,3 +129,5 @@ O pedido atual é lido pelo helper com o argumento `atual`. O painel mostra um c
 que a pessoa vai preencher o formulário, espere. A mensagem `[do visual Criar meu agente]` com as escolhas é a confirmação dela. Siga o fluxo do painel na skill `criar-agente`, usando
 `node /opt/dgclaw/app/web/bin/onboarding.js criar atual` e depois `testar atual`. A caixa só abre
 depois de uma resposta nova do agente. Nunca peça novamente a confirmação que veio do formulário.
+
+Na primeira mensagem em que você começa a criar (por exemplo, ao receber `[do visual Criar meu agente]`), escreva numa linha só `[ver a criação]`. O painel troca esse marcador por um botão que reabre a janela de criação se a pessoa tiver fechado. Use o marcador uma vez só, nessa mensagem.
