@@ -8,6 +8,7 @@ const { paraContainer } = require('./thread');
 const { criaInterceptor } = require('./token-telegram');
 const { acharRollout, ehRollout, confinar } = require('./rollout');
 const { motivoDoRunner } = require('./runner');
+const { criarComandos } = require('./comandos');
 
 const RX_SESSION = /^[A-Za-z0-9_-]{8,80}$/;
 const TTL_RUNNER_MS = 2000;
@@ -32,7 +33,8 @@ function montarEnvelope({ from, chat, msg, ts, text }) {
   return `<dgchat from="${atributo(from) || 'pessoa'}" chat="${atributo(chat)}" msg="${atributo(msg)}" ts="${atributo(ts)}">${corpo}</dgchat>`;
 }
 
-function criarConversa({ config, runner, leitor, leitorRollout, midia, log, agora, gravaToken, alertas }) {
+function criarConversa({ config, runner, leitor, leitorRollout, midia, log, agora, gravaToken, alertas, comandos: comandosInjetado }) {
+  const comandos = comandosInjetado || criarComandos({ runner, log, agora });
   const alertasVersao = new Map();
   const juntadas = new Map();       // slug -> { chave, partes, msgs, versao }: a thread juntada da última leitura
   const tokenTelegram = criaInterceptor({ gravaToken });
@@ -446,14 +448,60 @@ function criarConversa({ config, runner, leitor, leitorRollout, midia, log, agor
     if (faltam.length) {
       return erro(404, `Não achei o anexo ${faltam.join(', ')} entre os arquivos de ${agente.nome}. Suba o arquivo de novo em /upload (enviar=0) e use o anexo.id que voltar. Nada foi enviado.`, { anexos_faltando: faltam });
     }
-    // Admin: texto que começa com "/" (ex.: /compact, /clear) vai CRU, sem envelope.
-    const cru = agente.tipo === 'admin' && !ids.length && texto.startsWith('/');
-    const final = cru ? texto : [texto, ...marcadores].filter(Boolean).join('\n');
-    return entregar(agente, final, { cru });
+    // Mensagem que começa com "/": comando de barra (ver comandos.js). Anexos desligam; "//" escapa.
+    const d = await comandos.decidir(agente, texto, { temAnexos: ids.length > 0 });
+    if (d.erro) {
+      log('aviso', `Comando recusado para ${agente.slug} (${d.erro.codigo}): ${String(texto).slice(0, 80)}`);
+      const { status, ...corpo } = d.erro;
+      return erro(status, corpo.erro, { codigo: corpo.codigo, ...omite(corpo, ['erro', 'codigo']) });
+    }
+    if (d.tipo === 'comando') return entregaComando(agente, d);
+    const base = d.texto !== undefined ? d.texto : texto;
+    return entregar(agente, [base, ...marcadores].filter(Boolean).join('\n'), { cru: false });
+  }
+
+  const omite = (o, chaves) => Object.fromEntries(Object.entries(o).filter(([k]) => !chaves.includes(k)));
+
+  /** Entrega uma decisão do tipo 'comando' e anexa o objeto `comando` ao corpo 200. */
+  async function entregaComando(agente, d) {
+    const r = await entregar(agente, d.textoParaRunner, { cru: d.entregue_como === 'cru' });
+    if (r.status >= 300) return r;
+    const comando = Object.assign({}, d.comando, { entregue_como: d.entregue_como });
+    return { status: r.status, corpo: Object.assign({}, r.corpo, { comando }) };
+  }
+
+  /**
+   * POST /comando: { comando, argumentos } ou { text }. Mesmo caminho do /send, mas aqui tudo que não for
+   * comando é erro (o /send, ao contrário, segue como texto).
+   */
+  async function comando(agente, req) {
+    const b = req || {};
+    let texto;
+    if (typeof b.comando === 'string' && b.comando.trim()) {
+      const nome = b.comando.trim();
+      if (b.argumentos != null && typeof b.argumentos !== 'string') {
+        return erro(400, `"argumentos" precisa ser um texto. Recebi ${JSON.stringify(b.argumentos).slice(0, 80)}. Nada foi enviado.`, { codigo: 'COMANDO_MALFORMADO' });
+      }
+      texto = nome + (typeof b.argumentos === 'string' && b.argumentos.trim() ? ` ${b.argumentos.trim()}` : '');
+    } else if (typeof b.text === 'string' && b.text.trim()) {
+      texto = b.text.trim();
+    } else {
+      return erro(400, 'Mande o comando em "comando" (ex.: "/compact") ou o texto inteiro em "text" (ex.: "/compact foque nas decisões"). Recebi vazio. Nada foi enviado.', { codigo: 'COMANDO_MALFORMADO' });
+    }
+    if (texto.length > config.maxTexto) return erro(413, `O comando tem ${texto.length} caracteres e o limite é ${config.maxTexto}. Encurte os argumentos.`);
+    const d = await comandos.decidir(agente, texto, { temAnexos: false });
+    if (d.erro) {
+      const { status, ...corpo } = d.erro;
+      return erro(status, corpo.erro, { codigo: corpo.codigo, ...omite(corpo, ['erro', 'codigo']) });
+    }
+    if (d.tipo !== 'comando') {
+      return erro(400, `"${texto.slice(0, 80)}" não é um comando: o comando começa com uma barra e o nome vai colado nela, sem espaço (ex.: "/compact"). Para mandar texto comum ao agente, use o /send. Nada foi enviado.`, { codigo: 'COMANDO_MALFORMADO' });
+    }
+    return entregaComando(agente, d);
   }
 
   return {
-    montarEnvelope, estado, thread, atividade, rotuloProvedor, umaVez, enviar, entregar, permissao,
+    montarEnvelope, estado, thread, atividade, rotuloProvedor, umaVez, enviar, comando, comandos, entregar, permissao,
     RX_CLIENTE_ID,
   };
 }

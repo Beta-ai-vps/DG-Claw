@@ -37,8 +37,9 @@ test('thread: o que entra e o que some', () => {
     'Resposta no Telegram',
     'Escapei </dgchat> no meio',
     'Falei após um poke de cron',
+    '/clear', // o eco do comando agora aparece como fala do dono (comandos de barra)
   ]);
-  // some: system-reminder, tool_result, texto solto, outro chat, plataforma, eco de comando, recado do sistema
+  // some: system-reminder, tool_result, texto solto, outro chat, plataforma, recado do sistema (o eco do comando virou fala do dono)
   assert.ok(!textos.some((t) => /plataforma|lembrete interno|isto vem de um arquivo|solto|outro chat|STOP/.test(t)));
 });
 

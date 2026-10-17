@@ -179,6 +179,7 @@ const AQUI = location.pathname + location.search;
 const EH_ADMIN = AGENTE.tipo === 'admin';
 if (window.campoCofre) window.campoCofre.configurar({ agente: AGENTE.id, enviar: texto => new Promise((resolve, reject) => { enviarTexto(texto, null, { aoEntregar: (ok, motivo) => ok ? resolve() : reject(new Error(motivo || 'O agente não recebeu a mensagem.')) }); }) });
 if (window.DGOnboarding) window.DGOnboarding.iniciar({ agente: AGENTE, enviar: texto => new Promise((resolve, reject) => { enviarTexto(texto, null, { aoEntregar: (ok, motivo) => ok ? resolve() : reject(new Error(motivo || 'O Admin não recebeu a mensagem.')) }); }), refazer: () => render({ semRolar: true }) });
+if (window.DGBarra) window.DGBarra.liga(entrada, { url: API + '/comandos' });   // lista de comandos ao digitar /
 let novasAbaixo = 0, setaVisivel = false;   // a seta pro fim e o contador dela
 /* mp3 de 0,08s em silêncio: é o que destrava o áudio no iOS dentro do gesto. */
 const SILENCIO = 'data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAAAAAAA//NwwAAAAAAAAAAAAEluZm8AAAAPAAAABgAAAVMAnZ2dnZ2dnZ2dnZ2dnZ2dnbGxsbGxsbGxsbGxsbGxsbGxxcXFxcXFxcXFxcXFxcXFxdjY2NjY2NjY2NjY2NjY2NjY7Ozs7Ozs7Ozs7Ozs7Ozs7Oz/////////////////////AAAAAExhdmM2MC4zMQAAAAAAAAAAAAAAACQEUQAAAAAAAAFTx3TIuwAAAAAAAAAAAAAAAAD/8xDEAAAAA0gAAAAATEFNRTMuMTAwVVVVVf/zEsQNAAADSAAAAABVVVVVVVVVVVVVVVVVVf/zEMQbAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxCgAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDENQAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMRCAAADSAAAAABVVVVVVVVVVVVVVVVV';
@@ -1014,7 +1015,9 @@ async function api(url, opt) {
     // o corpo pode ter sido cortado pelo abort no meio da leitura
     if (estourou()) throw new Error(msgEstouro());
     if (!r.ok || (d && d.ok === false)) {
-      throw new Error((d && d.erro) || ('a API respondeu ' + r.status));
+      const erro = new Error((d && d.erro) || ('a API respondeu ' + r.status));
+      erro.status = r.status; erro.codigo = d && d.codigo; erro.dados = d;   // comandos de barra leem isto
+      throw erro;
     }
     return d || {};
   } finally {
@@ -1057,6 +1060,11 @@ function metaPendente(p) {
       if (t) return `<span class="meta fila" title="entregue ao agente, que ainda não chegou nela">✓ ${esc(p.hhmm)} · ${esc(t)}</span>`;
     }
     return `<span class="meta" title="entregue">✓ ${esc(p.hhmm)}</span>`;
+  }
+  if (p.estado === 'falhou' && p.recusado) {   // comando recusado: reenviar daria o mesmo erro
+    return `<span class="meta"><span style="color:#c0392b;font-weight:600">recusado</span> ` +
+           `${esc(p.erro || 'motivo desconhecido')} ` +
+           `<button class="mini descartar" data-pend="${p.n}">descartar</button></span>`;
   }
   if (p.estado === 'falhou') {
     const ocupado = p.conferindo ? ' disabled' : '';
@@ -1150,6 +1158,21 @@ function htmlTrilha(itens) {
     `<summary>${esc(TR.rotuloGrupo(itens))}</summary>` +
     itens.map(i => htmlComando(i, trilhaAbertas.has(i.id))).join('') + '</details></div>';
 }
+/* Resultado de um comando de barra (/context, /cost...): o que o terminal respondeu, num bloco fechado
+   do lado do agente. O texto vem do servidor e entra sempre escapado. */
+const comandoAbertos = new Set();
+function htmlResultadoComando(m) {
+  const erro = m.comando && m.comando.saida === 'stderr';
+  const texto = String(m.text || '').trim();
+  return `<div class="row her comando" data-msg="${esc(m.id)}"><details data-cmd="${esc(m.id)}"${comandoAbertos.has(m.id) ? ' open' : ''}>` +
+    `<summary>resultado do comando<span class="tl-hora">${esc(m.hhmm)}</span></summary>` +
+    `<pre class="cmd-saida${erro ? ' erro' : ''}">${texto ? esc(texto) : 'sem texto de saída'}</pre></details></div>`;
+}
+wrap.addEventListener('toggle', ev => {
+  const d = ev.target;
+  if (!d || !d.dataset || !d.dataset.cmd) return;
+  if (d.open) comandoAbertos.add(d.dataset.cmd); else comandoAbertos.delete(d.dataset.cmd);
+}, true);
 wrap.addEventListener('toggle', ev => {
   const d = ev.target;
   if (!d || !d.dataset || !d.dataset.tl) return;
@@ -1225,6 +1248,7 @@ function render(opt) {
       itens.push(['trilha:' + m.id, htmlTrilha(bloco.trilha)]);
       continue;
     }
+    if (m.origin === 'comando') { itens.push([m.id, htmlResultadoComando(m)]); continue; }
     if (m.cartaoNasc) { itens.push([m.id, window.DGOnboarding.htmlCartao(m.cartaoNasc)]); anterior = null; continue; }
     const lado = ehDono(m) ? 'me' : 'her';
     const troca = (anterior !== null && anterior !== lado ? ' gap' : '') +
@@ -3147,6 +3171,18 @@ async function mandaTexto(pend, semEsperar) {
     d = await api(API + '/send', { method: 'POST', body: corpo,
                                    timeoutMs: pend.anexos ? 120000 : 75000 });
   } catch (e) {
+    if (e.codigo && /^COMANDO_/.test(e.codigo)) {   // o servidor recusou o comando: sem "reenviar"
+      let motivo = e.message;
+      const sug = e.dados && e.dados.sugestoes;
+      if (sug && sug.length) motivo += ' Parecidos: ' + sug.join(', ') + '.';
+      if (pendentes.includes(pend) && pend.tentativa === tentativa) {
+        pend.recusado = true;
+        marcaFalhou(pend, motivo, 'Comando recusado: ');
+        mostraErro('Comando recusado: ' + motivo + ' Toque em "descartar" no balão.');
+      }
+      avisaEntrega(pend, false, motivo);
+      return false;
+    }
     falhouTentativa(pend, tentativa, 'Não consegui entregar a mensagem: ', e.message);
     avisaEntrega(pend, false, e.message);
     return false;
@@ -3163,7 +3199,9 @@ async function mandaTexto(pend, semEsperar) {
   const ficou = entregue(pend, d);
   avisaEntrega(pend, true);
   if (!ficou) return true;
-  if (!semEsperar && !esperando) await esperaResposta(d.ep_enviado);
+  // comando que não responde com fala (/compact, /context...): não fica no "esperando a resposta"
+  const semResposta = !!(d && d.comando && d.comando.espera_resposta === false);
+  if (!semEsperar && !semResposta && !esperando) await esperaResposta(d.ep_enviado);
   return true;
 }
 
@@ -3559,9 +3597,12 @@ function passosTutorial() {
       porque: 'É o histórico do seu trabalho com o agente. Nada se perde quando você fecha a tela.' },
     { alvo: '.campo', titulo: 'O campo de mensagem',
       oque: 'O lugar onde você escreve para ' + nome + '.',
-      como: 'Escreva e aperte Enter (ou a seta verde) para enviar. Para pular de linha no computador, use Shift+Enter.' +
-        (EH_ADMIN ? ' Aqui no Admin, comandos que começam com / (como /compact e /clear) funcionam: o primeiro resume a conversa para liberar memória, o segundo começa do zero.' : ''),
+      como: 'Escreva e aperte Enter (ou a seta verde) para enviar. Para pular de linha no computador, use Shift+Enter.',
       porque: 'Falar com o agente por texto é o jeito mais direto de pedir alguma coisa. Se o envio falhar, o balão fica marcado e você escolhe entre reenviar e descartar.' },
+    { alvo: '.campo', titulo: 'Comandos com a barra',
+      oque: 'Quando a mensagem começa com / (uma barra), aparece uma lista de comandos que ' + nome + ' entende, como /compact, /context e as skills que ele tem instaladas.',
+      como: 'Digite / e a lista abre acima do campo; continue digitando para filtrar. Use as setas e Enter, ou toque no item: o nome vai para o campo e você só acrescenta o que falta e envia. Os que não rodam por aqui aparecem apagados, com o motivo. Para mandar um texto que começa com barra, escreva // no começo.',
+      porque: 'Assim você não precisa decorar os nomes. O que o terminal responde (por exemplo o /context) volta na conversa, num bloco fechado "resultado do comando".' },
     { alvo: '#btnAnexo', titulo: 'Anexos',
       oque: 'O clipe serve para mandar fotos, vídeos, áudios e PDFs para o agente.',
       como: 'Toque nele e escolha os arquivos (até 10 por mensagem), ou cole uma imagem direto no campo. Cada arquivo sobe em segundo plano e a mensagem sai quando todos estiverem prontos.',
