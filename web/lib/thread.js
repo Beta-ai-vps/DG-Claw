@@ -39,6 +39,11 @@ const CANAL_USER = /\buser="([^"]*)"/;
 const POKE = /\/tmp\/dgclaw-poke-([a-zA-Z0-9_.-]+?)-\d{8}-\d{6}\.txt/;
 const RETORNO_SISTEMA = /^(stop hook feedback|\[request interrupted|caveat: the messages below)/i;
 const ECO_COMANDO = /^<(command-name|command-message|command-args|local-command-stdout|local-command-stderr|local-command-caveat)\b/;
+const ANSI = /\u001b(?:\[[0-9;?]*[ -\/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\)|[@-Z\\-_])/g;
+const SAIDA_COMANDO = /^<local-command-(stdout|stderr)>([\s\S]*?)(?:<\/local-command-\1>)?\s*$/;
+const TAG_NOME_COMANDO = /<command-name>([\s\S]*?)<\/command-name>/;
+const TAG_ARGS_COMANDO = /<command-args>([\s\S]*?)<\/command-args>/;
+const MAX_SAIDA_COMANDO = 4000;
 const REMINDER = /<system-reminder>[\s\S]*?<\/system-reminder>/g;
 const ANEXO_LINHA = /^\[anexo:\s*(.+?)\]\s*$/gm;
 const ROTULO_EMOJI = { photo: '📷 foto', video: '🎬 vídeo', audio: '🎤 áudio', document: '📄 arquivo' };
@@ -239,7 +244,27 @@ function criarMontagem({ tz, midia }) {
     estado.eventos.splice(i, 0, item);
   }
 
-  return { epDe, monta, empurra, empurraDono, empurraAgente, empurraDonoWhatsapp, empurraAgenteWhatsapp, empurraTrilha };
+  /**
+   * O resultado de um comando de barra que o terminal imprimiu (<local-command-stdout>): sem códigos ANSI,
+   * cortado em 4000 caracteres com aviso. Como a trilha, é texto de máquina: não passa por `marcar`.
+   */
+  function empurraComando(estado, { ep, texto, saida }) {
+    const limpo = String(texto).replace(ANSI, '').trim();
+    if (!limpo) return;
+    const cortado = limpo.length > MAX_SAIDA_COMANDO;
+    const corpo = cortado
+      ? `${limpo.slice(0, MAX_SAIDA_COMANDO)}\n[saída cortada: o terminal devolveu ${limpo.length} caracteres e a conversa mostra os primeiros ${MAX_SAIDA_COMANDO}]`
+      : limpo;
+    const { hhmm, dia } = fmtHoraDia(ep, tz);
+    estado.eventos.push({
+      id: crypto.createHash('sha1').update(`comando|${ep}|${saida}|${limpo}`).digest('hex').slice(0, 16),
+      ep, hhmm, dia, origin: 'comando', text: corpo, kind: 'text', media: null,
+      fmt: 'text', editada: false, reacoes: [], cita: null, via: 'plataforma', quem: 'agente',
+      comando: { saida, cortado },
+    });
+  }
+
+  return { epDe, monta, empurra, empurraDono, empurraAgente, empurraDonoWhatsapp, empurraAgenteWhatsapp, empurraTrilha, empurraComando };
 }
 
 /**
@@ -296,7 +321,7 @@ function criarLeitor({ log, tz, canalTelegram, midia }) {
     return { offset: 0, ino: null, trigger: 'owner', chatCorrente: '', eventos: [], versao: 0, ultimoEp: 0, msgsVistas: new Set(), waPendentes: new Map(), restoParcial: Buffer.alloc(0), trilhaPend: new Map() };
   }
 
-  const { epDe, empurra, empurraDono, empurraAgente, empurraDonoWhatsapp, empurraAgenteWhatsapp, empurraTrilha } = criarMontagem({ tz, midia });
+  const { epDe, empurra, empurraDono, empurraAgente, empurraDonoWhatsapp, empurraAgenteWhatsapp, empurraTrilha, empurraComando } = criarMontagem({ tz, midia });
 
   /**
    * Casa os tool_result de um turno user com os envios de WhatsApp pendentes. Sucesso: o evento
@@ -366,7 +391,7 @@ function criarLeitor({ log, tz, canalTelegram, midia }) {
     // O tool_result do WhatsApp não menciona "whatsapp" (só o tool_use_id), então com envio
     // pendente as linhas de tool_result também passam. Sem pendentes, o filtro continua barato.
     const resultadoPendente = (estado.waPendentes.size > 0 || estado.trilhaPend.size > 0) && linha.includes('"tool_result"');
-    if (!resultadoPendente && !/dgchat|<channel|canal-externo|plataforma|dgclaw-poke|telegram__|__whatsapp_|"name":"(?:Bash|Write|Edit|MultiEdit|NotebookEdit)"/.test(linha)) return;
+    if (!resultadoPendente && !/dgchat|<channel|canal-externo|plataforma|dgclaw-poke|command-name|local-command-std|telegram__|__whatsapp_|"name":"(?:Bash|Write|Edit|MultiEdit|NotebookEdit)"/.test(linha)) return;
 
     let o;
     try { o = JSON.parse(linha); } catch (_) { return; } // linha truncada (transcript sendo escrito) não derruba nada
@@ -383,7 +408,24 @@ function criarLeitor({ log, tz, canalTelegram, midia }) {
       let txt = textoDosBlocos(cont).replace(REMINDER, '').trim();
       if (!txt) return;
       if (RETORNO_SISTEMA.test(txt) || txt.includes('STOP BLOQUEADO')) return;
-      if (ECO_COMANDO.test(txt)) return;
+      if (ECO_COMANDO.test(txt)) {
+        // Eco de comando de barra: o que a pessoa digitou vira fala dela; o que o terminal imprimiu vira
+        // "resultado do comando". O resto (command-message sozinho, caveat) continua escondido.
+        const nome = TAG_NOME_COMANDO.exec(txt);
+        if (nome && !fila) {
+          const n = nome[1].trim();
+          if (n) {
+            const a = TAG_ARGS_COMANDO.exec(txt);
+            const args = a ? a[1].trim() : '';
+            estado.trigger = 'owner';
+            empurra(estado, agente, { ep: epDe(o.timestamp, estado), origin: 'dono', text: `${n.startsWith('/') ? n : `/${n}`}${args ? ` ${args}` : ''}`, caminhos: [], via: 'plataforma', quem: 'pessoa' });
+          }
+          return;
+        }
+        const saida = SAIDA_COMANDO.exec(txt);
+        if (saida && !fila) empurraComando(estado, { ep: epDe(o.timestamp, estado), texto: saida[2], saida: saida[1] });
+        return;
+      }
       if (txt.startsWith('<plataforma ')) { if (!fila) estado.trigger = 'cron'; return; } // aviso do sistema: o agente que fala depois age por conta própria
       const pk = POKE.exec(txt);
       if (pk) {

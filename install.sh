@@ -685,6 +685,16 @@ configurar_web() {
         return 0
     fi
     criar_pasta 700 "$DG_LIB/web"
+    # Par de chaves dos avisos no aparelho. Se falhar, o Web gera na primeira partida: nao derruba a instalacao.
+    if [ "$ENSAIO" = 1 ]; then
+        info "[ensaio] geraria o par de chaves dos avisos no aparelho em ${DG_LIB#"$R"}/web/push"
+    elif fonte_tem web/bin/push-chaves.js; then
+        if node "$DG_APP/web/bin/push-chaves.js" "$DG_LIB/web" >/dev/null 2>>"$LOG_INSTALAR"; then
+            ok "chaves dos avisos no aparelho prontas em ${DG_LIB#"$R"}/web/push"
+        else
+            aviso "nao consegui preparar as chaves dos avisos no aparelho (veja ${LOG_INSTALAR#"$R"}). O Web tenta de novo na primeira partida; se os avisos nao funcionarem, rode: node ${DG_APP#"$R"}/web/bin/push-chaves.js ${DG_LIB#"$R"}/web"
+        fi
+    fi
     if fonte_tem web/package.json; then
         npm_em "$DG_APP/web" ci --omit=dev
     fi
