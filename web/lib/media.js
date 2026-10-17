@@ -44,6 +44,12 @@ const MIMES = {
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.doc': 'application/msword', '.xls': 'application/vnd.ms-excel', '.ppt': 'application/vnd.ms-powerpoint',
+  '.odt': 'application/vnd.oasis.opendocument.text', '.ods': 'application/vnd.oasis.opendocument.spreadsheet',
+  '.odp': 'application/vnd.oasis.opendocument.presentation', '.rtf': 'application/rtf',
+  '.rar': 'application/vnd.rar', '.7z': 'application/x-7z-compressed', '.tar': 'application/x-tar',
+  '.gz': 'application/gzip', '.tgz': 'application/gzip',
+  '.tsv': 'text/tab-separated-values; charset=utf-8', '.yaml': 'text/plain; charset=utf-8', '.yml': 'text/plain; charset=utf-8',
 };
 const EXT_FOTO = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.avif', '.bmp']);
 const EXT_VIDEO = new Set(['.mp4', '.mov', '.webm', '.mkv', '.m4v']);
