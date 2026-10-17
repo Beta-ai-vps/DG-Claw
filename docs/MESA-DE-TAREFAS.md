@@ -1,86 +1,50 @@
-# Mesa de tarefas (opcional)
+# Mesa de tarefas
 
-A mesa de tarefas é uma coluna do app **DG Telegram** que mostra, para o dono, o que cada
-agente está fazendo: quem está em quê, quanto falta, o que travou e o que está esperando ele.
-**A tela só mostra.** Quem cria, atualiza e conclui as tarefas é o próprio agente, por API.
+A mesa de tarefas mostra ao dono, numa tela só, o que cada agente está fazendo: quem está em
+quê, quanto falta, o que travou e o que espera por ele. Funciona sozinha em cada VPS, dentro do
+DG Claw Web, sem nenhum serviço de fora. Nada para ligar: ela já vem com o Web.
 
-É **opcional**: só existe para quem tem o DG Telegram. Agente sem mesa funciona igual, e a
-seção da regra no CLAUDE.md manda ele ignorar tudo isso.
+## Onde fica
 
-## Como ligar
+A tela é `/mesa` no DG Claw Web, com o item **Mesa de tarefas** no menu da conversa. Um bloco
+por agente, com os cartões das tarefas; o que espera pelo dono e o que travou vêm primeiro. O
+dono também mexe nela: cria tarefa para um agente, responde, conclui, cancela e reabre.
 
-1. No DG Telegram, em `/settings/api-keys`, crie uma chave com **Agente dono** = o slug deste
-   agente. Com dono, o POST já sai no nome dele e a chave só altera as tarefas dele (403 nas
-   dos outros). Ler, ela lê a mesa inteira.
-2. Acrescente as duas linhas no fim do `.dgclaw/config.sh` do agente (o arquivo é 600, do dono
-   do workspace):
+## Como o agente usa
 
-   ```bash
-   export DGCLAW_MESA_URL="http://127.0.0.1:4045/api/v1/tarefas"
-   export DGCLAW_MESA_KEY="<a chave do agente>"
-   ```
+O agente cria, atualiza e conclui as próprias tarefas pelo comando `dgclaw-mesa`, que roda dentro
+do container e fala com o Web pela [caixa do agente](CAIXA-DO-AGENTE.md) (o `dgclaw-api`). Ele não
+passa endereço nem chave.
 
-3. Rode o doctor (`/dgclaw:doctor`). A seção **10. Extensões instaladas** diz se a mesa está
-   configurada e se o GET responde 200. Com `--fix`, se o CLAUDE.md do agente for anterior a
-   esta regra, a seção da mesa é acrescentada no fim dele (com backup ao lado).
+```bash
+dgclaw-mesa criar --titulo "Roteiro do reels" --origem "Dono, 05/10 15h42: faz o roteiro" --passo pesquisa --passo roteiro
+dgclaw-mesa atualizar 12 --progresso 60 --nota "escrevendo o gancho"
+dgclaw-mesa pedir 12 --motivo "gancho A ou B?"
+dgclaw-mesa concluir 12 --link "https://..."
+dgclaw-mesa listar
+```
 
-**Precisa reiniciar?** Não. A variável só entra no ambiente da sessão viva no próximo
-restart do `dgclaw-<slug>.service`, mas todo comando da regra começa por
-`[ -n "$DGCLAW_MESA_KEY" ] || . "$DGCLAW_WORKSPACE/.dgclaw/config.sh"`, que lê o config quando a
-variável ainda não está lá. Vale já no próximo turno em que o agente ler o CLAUDE.md.
+A regra de quando criar uma tarefa está na seção "Mesa de tarefas" do `CLAUDE.md` do agente
+(`templates/CLAUDE.md.tmpl`; no Codex, `templates/AGENTS.md.tmpl`) e na skill `mesa`
+(`/dgclaw:mesa`). Quando o dono mexe numa tarefa pela tela, o Web manda ao agente um recado
+começando com `[Mesa]`.
 
-**Reinstalar o plugin** (`install-core.sh bootstrap`) reescreve o `config.sh` inteiro, mas leva
-as duas linhas da mesa para o arquivo novo. A chave não passa pela tela.
+## Referência completa
 
-**Uma chave, dois usos.** `DGCLAW_MESA_KEY` é a chave do agente no DG Telegram. O
-[quadro de avisos da equipe](QUADRO-DE-AVISOS.md) usa a mesma chave e o mesmo servidor (a base
-é o `DGCLAW_MESA_URL` sem o `/api/v1/tarefas`). Não crie uma segunda chave para ele.
-
-## A regra que o agente segue
-
-Está no `templates/CLAUDE.md.tmpl`, seção "Mesa de tarefas", e só vale quando o ambiente tem
-`DGCLAW_MESA_URL`:
-
-1. Pedido rápido não vira tarefa: responder, mandar arquivo, conferir algo em 2 minutos.
-2. Trabalho de verdade vira tarefa ANTES de começar: conteúdo, desenvolvimento, projeto,
-   levantamento de várias etapas.
-3. Na dúvida, o agente pergunta ao dono: "quer que eu crie um projeto pra isso?".
-4. Atualiza enquanto trabalha (`progresso`, `passos`, `nota`). Em `fazendo` sem atualização há
-   45 minutos, a tarefa aparece na mesa como "parada?".
-5. Travou ou precisa do dono: estado `travada` ou `esperando_danilo`, sempre com `motivo`.
-   `esperando_danilo` é o nome do estado na API e vale para qualquer dono; o texto da regra usa
-   o nome do dono.
-6. Terminou: estado `concluida`, com `link`. Quando o dono diz "pode dar como concluído", o
-   agente conclui.
-
-## Por que a regra fica no template para todos, e não só para quem tem mesa
-
-A mesa pode ser ligada depois da instalação, só acrescentando duas linhas no config. Se a seção
-dependesse do setup, ligar a mesa exigiria regerar o CLAUDE.md, e o agente teria a chave sem
-saber quando usar. Com a seção condicional, ligar e desligar é só mexer no config. O custo é
-uma seção a mais no CLAUDE.md de quem não tem mesa, que começa dizendo para ignorá-la.
-
-## A API, em resumo
-
-A referência completa fica na doc do DG Telegram, `/api/v1/docs.md`, seção "Mesa de tarefas".
-
-| Rota | O que faz |
-| --- | --- |
-| `GET /api/v1/tarefas?agente=<slug>` | as tarefas abertas e as concluídas de hoje |
-| `POST /api/v1/tarefas` | cria (`titulo` e `origem` obrigatórios; `tipo`, `passos`, `progresso`, `nota`, `link` opcionais) |
-| `PATCH /api/v1/tarefas/<id>` | muda só o que veio; `{}` é sinal de vida |
-| `DELETE /api/v1/tarefas/<id>` | cancela (não apaga) |
-
-Erros: `400` com `erros` campo a campo, `401` chave recusada, `403` tarefa de outro agente,
-`404` tarefa inexistente, `503` o banco da mesa não abriu.
+- `web/docs/MESA.md`: a tarefa, os estados, quem pode o quê, as rotas, os erros e o comando.
+- `GET /api/v1/tarefas/docs.md`: o mesmo documento, servido pelo Web (o agente lê com
+  `dgclaw-api GET /api/v1/tarefas/docs.md`).
 
 ## O que o doctor diz
 
-| Linha | O que quer dizer | O que fazer |
-| --- | --- | --- |
-| `[info] mesa de tarefas: desligada` | o config não tem as variáveis | nada, se o dono não usa o DG Telegram |
-| `[FALTA] mesa de tarefas pela metade` | tem uma das duas variáveis e falta a outra | completar o config |
-| `[ ok ] ... deu 200` | configurada e respondendo | nada |
-| `[FALTA] ... recusou a chave (401)` | chave revogada ou errada | criar outra com Agente dono e trocar no config |
-| `[aviso] ninguém respondeu` | DG Telegram fora do ar ou URL errada | conferir o serviço e a URL |
-| `[aviso] ... CLAUDE.md não tem a seção` | agente instalado antes da regra | `--fix` |
+O bloco "mesa de tarefas local" do `/dgclaw:doctor` confere três coisas: se `dgclaw-mesa` e
+`dgclaw-api` existem, e se o `CLAUDE.md` do agente tem a seção "Mesa de tarefas" atual. Sem os
+comandos, o aviso diz para atualizar o DG Claw e rodar `sudo dgclaw agente reparar <slug>`. Sem a
+seção, o aviso pede `--fix`, que a acrescenta no fim do `CLAUDE.md` (com cópia de segurança ao lado).
+
+## Integração antiga com o DG Telegram
+
+A primeira versão da mesa ficava no app DG Telegram e usava `DGCLAW_MESA_URL` e `DGCLAW_MESA_KEY`
+no `config.sh` do agente. A mesa local a substituiu, e essas variáveis são ignoradas por ela. O
+[quadro de avisos da equipe](QUADRO-DE-AVISOS.md) ainda pode usá-las até a frente dele trocar de
+base; o doctor continua conferindo essa integração quando as variáveis existem, como opcional.

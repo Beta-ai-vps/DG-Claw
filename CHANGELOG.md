@@ -22,6 +22,10 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
   `DGCLAW_PANEL_SESSOES_URL` o painel usa o modo local; com ela, continua usando o DG Telegram.
 - O limite de cards abertos ao mesmo tempo sobe de 3 para 8 nas instalações novas
   (`RUNNER_MAX_SESSOES_EXTRAS` na unidade do runner).
+- Modo foco (backend): lista curta por agente que o agente monta e o dono tica na tela. Rotas
+  `/api/v1/foco/<agente>` (lista, itens, eventos com cursor e `docs.md`), evento `foco` no stream da
+  conversa, gancho `foco-hook` (`promptHooks` do `runner.json`) que avisa o agente dos tiques do dono no
+  começo do turno, e a skill `foco`. Contrato em `web/docs/MODO-FOCO.md`.
 
 ## [1.0.0] - 2026-10-17
 

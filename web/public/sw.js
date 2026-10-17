@@ -14,6 +14,7 @@ const ESTATICOS = [
   '/sigilo.js', '/sigilo.css',
   '/avisos-aparelho.js',
   '/lembretes-faixa.js', '/lembretes.js', '/lembretes.css',
+  '/foco-tela.js', '/foco-tela.css',
   '/login.css', '/login.js',
   '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',

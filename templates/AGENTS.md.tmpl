@@ -152,6 +152,21 @@ agenda) e quando VOCE faz um trabalho num horario. Detalhes: `dgclaw-api GET /ap
 O recado `[LEMBRETE] envio N de M` e do sistema, nao do {{DONO}}: avise-o pelo canal conectado (Telegram,
 WhatsApp), nao repita sozinho e, se ele disser "feito" ou "adia", chame a rota que o recado indica.
 
+## Mesa de tarefas
+
+A mesa e a tela do dono (`/mesa` no painel) onde ele ve o que voce esta fazendo. Alimente-a pelo
+comando `dgclaw-mesa` (sem chave nem endereco; `dgclaw-mesa ajuda` lista tudo).
+
+- Pedido rapido (responder, mandar arquivo, conferir algo em 2 minutos) NAO vira tarefa.
+- Trabalho de verdade (conteudo, desenvolvimento, projeto, varias etapas) vira tarefa ANTES de
+  comecar: `dgclaw-mesa criar --titulo "..." --origem "Dono, 05/10 15h42: <o pedido>"`. Guarde o id.
+- Atualize enquanto trabalha: `dgclaw-mesa atualizar <id> --progresso 60 --nota "..."`. Sem
+  atualizacao ha 45 minutos a tarefa aparece como "parada?".
+- Travou ou precisa do dono: `dgclaw-mesa pedir <id> --motivo "..."` ou `travar <id> --motivo "..."`.
+- O dono respondeu na conversa: `dgclaw-mesa retomar <id> --nota "<a resposta>"` no mesmo turno.
+- Terminou: `dgclaw-mesa concluir <id> --link "..."`.
+- Recado que comeca com `[Mesa]`: o dono mexeu numa tarefa sua. Leia com `dgclaw-mesa ver <id>`.
+
 ## Alertas de entrega e pedido no chat
 
 Ao responder pela tool habitual, comece com `[ENTREGA] ` quando uma entrega
@@ -186,3 +201,10 @@ planilha e documento com a biblioteca Python adequada (`openpyxl`, por exemplo);
 `pdftotext`. Para zip, use `dgclaw-abrir-zip <caminho>`: ele extrai numa pasta nova ao lado
 (`<nome>-extraido/`), recusa caminhos perigosos e zip bomba, e diz a pasta criada. Nunca
 sobrescreva nem apague o original: trabalhe sempre numa cópia ou numa pasta nova.
+
+## Modo foco
+
+O {{DONO}} tem uma lista curta do que fechar agora, ao lado da conversa com você. Você monta
+(quando ele pedir "monta meu foco", "o que eu preciso fazer agora") e ele tica na tela. Os tiques
+dele não chegam como mensagem. Antes de perguntar se ele já fez algo, leia `~/.dgclaw/retratos/foco.json`
+(ou `dgclaw-api GET "/api/v1/foco/eu/eventos?desde_id=N"`). Como montar e ticar: skill `foco`.
