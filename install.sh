@@ -284,7 +284,7 @@ checar_maquina() {
     # Sistema que nao e Ubuntu continua recusado: o instalador usa apt, ufw e os pacotes dele.
     case "$so" in
         "ubuntu 22.04"|"ubuntu 24.04") ok "sistema: $so" ;;
-        "ubuntu "*) aviso "esta versao do Ubuntu ($so) ainda nao foi testada; vou tentar instalar. Se der erro, reinstale a VPS com Ubuntu 24.04 LTS e rode o instalador de novo." ;;
+        "ubuntu "*) aviso "O DG Claw foi feito e testado no Ubuntu 24.04 LTS. Esta VPS esta com o Ubuntu ${so#ubuntu }, e ele deve funcionar, mas a instalacao segue por sua conta e risco. Se der algum erro, reinstale a VPS com o Ubuntu 24.04 LTS no painel da sua hospedagem (na Hostinger leva uns 5 minutos) e rode de novo." ;;
         *) falha "este sistema e '$so' e o DG Claw v1 so instala em Ubuntu (testado no 22.04 e no 24.04)." \
                "crie um servidor com Ubuntu 24.04 LTS e rode o instalador nele." ;;
     esac
