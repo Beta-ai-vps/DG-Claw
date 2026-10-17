@@ -399,6 +399,7 @@ gerar_runner_json() {
                              DGCLAW_AGENTE_ID: $slug,
                              DGCLAW_RUNNER_URL: "http://127.0.0.1:4300",
                              RUNNER_TOKEN_FILE: "/run/dgclaw/segredos/runner.token"},
+                  promptHooks: ["node /opt/dgclaw/app/scripts/foco-hook.mjs"],
                   tags: ["dgclaw", $slug], cofre: []}}'
 }
 
@@ -729,7 +730,7 @@ done
 # nova sozinha. As do Admin (criar-agente, uninstall, trocar-dominio...) ficam de fora.
 mkdir -p "$CASA/.claude/skills"
 chown agente:agente "$CASA/.claude" "$CASA/.claude/skills"
-for s in agenda aprender avisos memory avatar report slide-animado site-animado video-animado groq-audio gemini-gratuito visuais-na-conversa; do
+for s in agenda aprender avisos memory foco avatar report slide-animado site-animado video-animado groq-audio gemini-gratuito visuais-na-conversa; do
     origem="/opt/dgclaw/app/skills/$s"
     alvo="$CASA/.claude/skills/$s"
     [ -f "$origem/SKILL.md" ] || { echo "aviso: a skill $s nao esta na imagem ($origem); sigo sem ela." >&2; continue; }
@@ -1134,6 +1135,8 @@ agente_reparar() {
         falha "o container $c nao esta ligado." "ligue com: dgclaw agente iniciar $slug"
     fi
     porta="$(printf '%s' "$obj" | jq -r '.runner | sub("^.*:"; "")')"
+    passo "Garantindo o gancho do Modo foco no runner.json"
+    garantir_gancho_foco "$DG_CASAS/$slug/runner/runner.json" "$slug"
     passo "Regravando o config.sh do agente $slug"
     regravar_config_sh "$slug" "$obj"
     passo "Refazendo a parte de dentro do agente $slug"

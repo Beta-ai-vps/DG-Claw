@@ -2029,6 +2029,7 @@ function ligaStream() {
   }, true);
   ouve('msgs', integra, true);
   ouve('atividade', integraAtividade, false);
+  ouve('foco', d => window.DGFoco && window.DGFoco.recebe(d), false);
   es.onerror = () => {
     if (fonte !== es) return;
     if (streamAberto) { streamAberto = false; mudouStream(); }
@@ -3657,6 +3658,7 @@ function passosTutorial() {
     porque: 'Sem conta conectada o agente não consegue responder. Assim você resolve aqui mesmo, sem abrir terminal.' });
   if (window.DGSigilo) passos.push(window.DGSigilo.passoTour());
   passos.push(passoAlertas());
+  if (window.DGFoco) passos.push(window.DGFoco.passoTutorial());
   passos.push(passoAcervo());
   return passos;
 }
