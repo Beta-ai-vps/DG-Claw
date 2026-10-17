@@ -65,7 +65,11 @@ Se a conversa começou pelo recado `<plataforma recado="primeiro-boot">` (vem da
 dono), o Admin manda a mensagem de abertura e espera a resposta:
 
 > Oi! Eu sou o Admin do seu DG Claw. Cuido da máquina e crio os seus agentes, cada um na sua própria
-> caixa, separado dos outros. Vamos criar o primeiro? Como vai se chamar seu agente?
+> caixa, separado dos outros. Vamos criar o primeiro? Toque em **Quero criar meu primeiro agente**, na
+> janela aqui do chat. Se preferir, me diga aqui mesmo como ele vai se chamar.
+
+Se o dono tocar no botão, segue a criação pelo formulário (seção acima). Se responder pela conversa,
+o Admin segue os dez passos abaixo.
 
 Se o dono pediu um agente novo por conta própria, a conversa começa direto no passo 1.
 
@@ -136,7 +140,23 @@ está sendo preparada, leva alguns minutos") e confere de novo a cada minuto ou 
 só quando muda alguma coisa. Se a construção falhou, o Admin conta a causa em linguagem simples e roda
 `dgclaw imagem construir`.
 
-Com a imagem pronta:
+Com a imagem pronta, o Admin grava o pedido e cria pelo helper do painel. O texto do dono entra por
+heredoc com o delimitador entre aspas simples, para o shell não interpretar nada dele. Escape aspas
+duplas e barras do texto como JSON:
+
+```
+node /opt/dgclaw/app/web/bin/onboarding.js pedir <<'FIM'
+{"nome": "<Nome>", "papel": "<papel>", "jeito": "<jeito>", "dono": "<nome do dono>"}
+FIM
+node /opt/dgclaw/app/web/bin/onboarding.js criar atual
+```
+
+No `criar atual`, use o limite de 600000 ms (dez minutos). Isso faz a janela de criação do painel
+mostrar o andamento e, no fim, a animação do agente nascendo. Este caminho usa a assinatura e o canal
+chat, com o mesmo provedor do Admin. Se o dono escolheu Telegram ou WhatsApp, a ligação do canal continua
+sendo feita depois pelo próprio agente (passo 5). Se ele escolheu outro provedor ou uma chave de API,
+crie direto, como na `referencia.md`. Nesse caso não há animação nem a mensagem de boas-vindas
+com os próximos passos:
 
 ```
 dgclaw agente criar <slug> --nome "<Nome>" --provedor <claude|codex> --auth <assinatura|api> \
@@ -150,14 +170,26 @@ Sofia"), sem repetir a saída do comando. O detalhe dos parâmetros e das mensag
 ### 8. Login do agente
 
 Cada agente entra na conta do dono por conta própria. O Admin explica em uma frase: "Falta o {nome}
-entrar na sua conta do Claude (ou do Codex): abra o painel dele pelo menu aqui em cima, clique em
-Entrar com a assinatura e siga o passo a passo na tela." Depois espera o dono dizer que entrou. Nada
+entrar na sua conta do Claude (ou do Codex): toque em Conectar minha assinatura, na janela de criação
+(ou abra o painel dele pelo menu), clique em Entrar com a assinatura e siga o passo a passo na tela."
+Depois espera o dono dizer que entrou. Nada
 de senha ou código passa pelo chat do Admin.
 
 ### 9. Teste real
 
-O Admin descobre a porta e o arquivo do token do agente no registro, sem mostrar nenhum dos dois ao
-dono:
+Quando o dono voltar, rode:
+
+```
+node /opt/dgclaw/app/web/bin/onboarding.js testar atual
+```
+
+O helper manda ao agente a primeira mensagem, com os próximos passos (Groq, Gmail, mão na massa e
+Gemini), e espera uma resposta nova. Se não vier, ele reinicia o agente uma vez sozinho e tenta de novo.
+O Admin só diz que terminou depois de uma resposta de verdade; se falhar, conta ao dono o que viu e o que
+vai fazer.
+
+Só no caso do `dgclaw agente criar` direto (sem pedido gravado), o teste é manual. O Admin descobre a
+porta e o arquivo do token do agente no registro, sem mostrar nenhum dos dois ao dono:
 
 ```
 jq -r '.agentes[]|select(.slug=="<slug>")|"\(.runner) \(.runner_token_arquivo)"' /etc/dgclaw/agentes.json
@@ -182,13 +214,14 @@ curl -sS -H @"$cab" <runner>/api/agents/<slug>/conversation
 rm -f "$cab"
 ```
 
-Se o agente respondeu, o Admin mostra a resposta ao dono. Se não respondeu em cerca de um minuto, o
-Admin roda `dgclaw agente reiniciar <slug>`, tenta de novo uma vez e, persistindo, conta ao dono o que
-viu e o que vai fazer. O Admin só diz que terminou depois de uma resposta de verdade.
+Se o agente não respondeu em cerca de um minuto, o Admin roda `dgclaw agente reiniciar <slug>` e tenta de
+novo uma vez.
 
 ### 10. Entrega
 
-"Pronto! O {nome} já aparece no menu, lá em cima à esquerda. Clica nele e dá um oi."
+O agente aparece no menu, lá em cima à esquerda, e a janela do painel mostra a animação dele nascendo.
+Diga: "Seu agente respondeu. Toque no cartão dele para começar." Se o caminho foi o `dgclaw agente criar`
+direto, diga: "Pronto! O {nome} já aparece no menu, lá em cima à esquerda. Clica nele e dá um oi."
 
 Se a escolha foi Telegram ou WhatsApp, acrescenta: "Lá, peça a ele: quero falar com você no Telegram."
 (ou WhatsApp).

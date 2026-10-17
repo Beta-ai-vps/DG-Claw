@@ -104,3 +104,50 @@ test('pedido corrompido não derruba a lista nem o chat dos agentes',async t=>{
   assert.equal((await web.c.get('/api/v1/agents')).status,200);
   assert.equal((await web.c.get('/a/admin')).status,200);
 });
+
+const dadosConversa = {nome:'Bia',papel:'Cuidar do meu Instagram',jeito:'Descontraído',dono:'Ana'};
+test('pedido gravado pela conversa segue criar/testar e mostra a animação do painel',async t=>{
+  const {web}=await cenario(t); await web.login();
+  const p=await executar('pedir',undefined,{web:web.web,dados:dadosConversa});
+  assert.equal(p.fase,'solicitado');assert.equal(p.origem,'conversa');assert.equal(p.slug,'bia');assert.equal(p.dono,'Ana');
+  assert.equal(p.foto,null);assert.equal(p.provedor,'claude');
+  assert.equal(loja(web.dados).ultimo().id,p.id);
+  const {EventEmitter}=require('node:events');
+  const fakeSpawn=()=>{
+    const reg=JSON.parse(fs.readFileSync(web.agentesPath));reg.agentes.push({slug:p.slug,nome:p.nome,agente_id:p.slug,runner:'http://127.0.0.1:1',porta_painel:8301});fs.writeFileSync(web.agentesPath,JSON.stringify(reg));
+    const e=new EventEmitter();setImmediate(()=>e.emit('exit',0));return e;
+  };
+  // Com um agente não-admin no registro, o estado ainda mostra o pedido (antes virava 'inativo').
+  let r=await executar('criar','atual',{web:web.web,spawn:fakeSpawn});assert.equal(r.fase,'login');
+  let estado=(await web.c.get('/api/v1/onboarding')).json;
+  assert.equal(estado.fase,'login');assert.equal(estado.nome,'Bia');assert.equal(estado.conversa,null);
+  let texto=null;
+  const faux={...web.web,conversa:{enviar:async(a,m)=>{texto=m.text;return{status:200,corpo:{ep_enviado:100}};},thread:async()=>({msgs:texto?[{id:'nova',origin:'agente',ep:101}]:[]})}};
+  r=await executar('testar','atual',{web:faux,esperaMs:20,intervaloMs:1});
+  assert.equal(r.fase,'pronto');
+  assert.match(texto,/Conectar a Groq/);assert.match(texto,/Conectar o Gmail/);assert.match(texto,/Oi! Sou Ana/);
+  estado=(await web.c.get('/api/v1/onboarding')).json;
+  assert.equal(estado.fase,'pronto');assert.equal(estado.conversa,'/a/bia');
+});
+test('pedido pela conversa recusa dados ruins e segundo pedido em andamento',async t=>{
+  const {web}=await cenario(t);
+  await assert.rejects(executar('pedir',undefined,{web:web.web,dados:{...dadosConversa,dono:''}}),/seu nome/);
+  await assert.rejects(executar('pedir',undefined,{web:web.web,dados:{...dadosConversa,dono:undefined}}),/seu nome/);
+  await assert.rejects(executar('pedir',undefined,{web:web.web,dados:{...dadosConversa,papel:'linha 1\nlinha 2'}}),/a função.*sem quebras de linha/);
+  await assert.rejects(executar('pedir',undefined,{web:web.web,dados:null}),/JSON com nome/);
+  assert.equal(loja(web.dados).ultimo(),null);
+  await executar('pedir',undefined,{web:web.web,dados:dadosConversa});
+  await assert.rejects(executar('pedir',undefined,{web:web.web,dados:{...dadosConversa,nome:'Caio'}}),e=>e.status===409&&/em andamento/.test(e.message));
+  await assert.rejects(executar('apagar','atual',{web:web.web}),/Uso: .*pedir com o JSON/);
+});
+test('nome repetido ganha sufixo e a CLI lê o pedido pelo STDIN',async t=>{
+  const {web}=await cenario(t);
+  const reg=JSON.parse(fs.readFileSync(web.agentesPath));reg.agentes.push({slug:'bia',nome:'Bia',agente_id:'bia',runner:'http://127.0.0.1:1'});fs.writeFileSync(web.agentesPath,JSON.stringify(reg));
+  const p=await executar('pedir',undefined,{web:web.web,dados:dadosConversa});
+  assert.match(p.slug,/^bia-[a-f0-9]{6}$/);
+  const {spawnSync}=require('node:child_process');
+  const r=spawnSync(process.execPath,[path.join(__dirname,'../bin/onboarding.js'),'pedir'],{input:'  ',encoding:'utf8'});
+  assert.notEqual(r.status,0);assert.match(r.stderr,/Não chegou nada pelo STDIN.*\{"nome"/);
+  const r2=spawnSync(process.execPath,[path.join(__dirname,'../bin/onboarding.js'),'pedir'],{input:'{ruim',encoding:'utf8'});
+  assert.notEqual(r2.status,0);assert.match(r2.stderr,/JSON recebido pelo STDIN é inválido/);
+});

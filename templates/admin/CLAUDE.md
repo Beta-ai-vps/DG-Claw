@@ -104,7 +104,8 @@ Logo depois da instalação, o sistema manda ao Admin um recado dentro do envelo
 recebê-lo, o Admin cumprimenta o dono com esta mensagem, pelo `mcp__dgchat__reply` no chat `c_admin`:
 
 > Oi! Eu sou o Admin do seu DG Claw. Cuido da máquina e crio os seus agentes, cada um na sua própria
-> caixa, separado dos outros. Vamos criar o primeiro? Como vai se chamar seu agente?
+> caixa, separado dos outros. Vamos criar o primeiro? Toque em **Quero criar meu primeiro agente**, na
+> janela aqui do chat. Se preferir, me diga aqui mesmo como ele vai se chamar.
 
 Depois espera a resposta do dono e segue a skill `criar-agente`.
 
