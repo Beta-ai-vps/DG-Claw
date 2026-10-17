@@ -37,7 +37,10 @@ Valem as do processo e, por baixo delas, as do arquivo `DGCLAW_WEB_ENV` (formato
 | `DGCLAW_CHANNEL_SOURCE` | `plugin:telegram` | Prefixo do canal externo reconhecido no registro da sessão. |
 | `ELEVENLABS_API_KEY` | vazio | Liga microfone e voz. |
 | `ELEVENLABS_VOICE_ID` | vazio | Voz padrão (cada agente pode ter a sua no campo `voz`). |
-| `OPENAI_API_KEY` | vazio | Liga só o microfone (transcrição), se não houver chave da ElevenLabs. |
+| `OPENAI_API_KEY` | vazio | Liga só o microfone (transcrição), se não houver chave da ElevenLabs. Também liga o modo escondido, se não houver `ANTHROPIC_API_KEY`. |
+| `ANTHROPIC_API_KEY` | vazio | Liga o modo escondido completo (Claude Haiku). Sem nenhuma chave de modelo, só o filtro automático da tela age. |
+| `DGCLAW_SIGILO_MODELO` | `claude-haiku-4-5` ou `gpt-4.1-mini` | Troca o modelo do modo escondido. |
+| `DGCLAW_SIGILO_LIBERADOS` | vazio | Nomes que o modo escondido nunca esconde, separados por vírgula. |
 
 Sem chave de voz, `voz` e `microfone` saem `false` em `/api/v1/agents` (a tela esconde os botões) e as rotas respondem 503 com o motivo.
 
@@ -89,6 +92,7 @@ API (todas com sessão; erros sempre `{ok:false, erro:"motivo em português"}`):
 | `POST /api/v1/transcribe` | Multipart com `audio`. Resposta `{ok, text}`. |
 | `POST /api/v1/tts` | `{agent_id, text}`; responde o áudio (`audio/mpeg`). `X-TTS-Cortado: 1` quando o texto foi cortado. |
 | `GET /api/v1/tts/cota` | Uso da cota de voz. |
+| `POST /api/v1/sigilo` | `{textos:[...]}` (até 600). Aponta os trechos sensíveis de cada texto para o modo escondido: `{trechos, avisos, analisados, modelo, so_regex}`. `GET /api/v1/sigilo/estado` diz o modelo ativo; docs em `GET /api/v1/sigilo/docs.md`. Ver `docs/MODO-ESCONDIDO.md`. |
 | `GET /api/v1/eu` | `{ok, usuario}`. |
 | `GET`/`POST`/`PATCH`/`DELETE /api/v1/tarefas[/:id]` | Mesa de tarefas dos agentes (criar, atualizar, concluir, cancelar). Contrato completo em `docs/MESA.md` (também em `GET /api/v1/tarefas/docs.md`). |
 | `ANY /p/<slug>/*` | Proxy do painel do agente. |

@@ -56,7 +56,16 @@ dgclaw-card ler "$id" --n 2
 
 Conte ao dono o que o card respondeu, com as palavras dele, dizendo que veio do GPT (ou do
 provedor usado). Não cole a saída crua. Depois feche: `dgclaw-card fechar "$id"`. A conversa fica
-guardada no disco, e a vaga volta. O limite é 3 cards abertos ao mesmo tempo.
+guardada no disco, e a vaga volta. O limite é de 8 cards abertos ao mesmo tempo (o dono pode
+mudar).
+
+## O dono vê os seus cards no painel
+
+Todo card que você abre com `dgclaw-card abrir` aparece na aba Sessões do painel do dono, com o
+`--titulo` que você deu como nome. Por isso escolha um título curto que diga o assunto (por exemplo
+"Revisão do contrato"), e nunca "teste" ou "card". Ele pode abrir o card, ler a conversa e mandar
+um recado por lá. Esse recado chega ao card como uma mensagem a mais, então, ao esperar e ler o
+resultado, leia também o que veio depois do seu pedido.
 
 ## Regras
 
@@ -73,7 +82,7 @@ guardada no disco, e a vaga volta. O limite é 3 cards abertos ao mesmo tempo.
 
 O comando já escreve a frase pronta. Repasse ao dono em linguagem simples:
 
-- Código 4 (limite): há 3 cards abertos. Rode `dgclaw-card listar`, feche os que acabaram com
+- Código 4 (limite): há cards demais abertos (o padrão desta instalação é 8). Rode `dgclaw-card listar`, feche os que acabaram com
   `dgclaw-card fechar <id>` e tente de novo. Se o dono quiser mais vagas, o limite sobe em
   `RUNNER_MAX_SESSOES_EXTRAS` (quem mantém a máquina ajusta).
 - Código 5 (sem login): o provedor ainda não está conectado. Peça ao dono para abrir o painel,

@@ -52,6 +52,40 @@ const FRASE_BLOQUEIO = 'Isso só se faz no DG Telegram, com o login do Danilo: u
   + 'Use o botão Decidir no DG Telegram.';
 const FRASE_COFRE = 'O cofre do Bunker está trancado. Destrave pelo DG Telegram, com a senha mestra, e volte aqui.';
 
+/** Separa o caminho em partes decodificadas e minúsculas. null quando o caminho é suspeito. */
+function partesDoCaminho(resto) {
+  const cruas = resto.split('/').slice(1); // o primeiro item é o vazio antes da primeira barra
+  if (cruas.length && cruas[cruas.length - 1] === '') cruas.pop();
+  const partes = [];
+  for (const p of cruas) {
+    let d;
+    try { d = decodeURIComponent(p); } catch { return null; }
+    if (!d || d === '.' || d === '..' || /[\\/\u0000]/.test(d)) return null;
+    partes.push(d);
+  }
+  return partes;
+}
+
+/**
+ * Trava contra pedido forjado por outro site (CSRF). O cookie de login do painel não tem
+ * SameSite, então Safari e Firefox o mandam em um form POST vindo de qualquer página. Aqui
+ * um POST criaria um card com permissão automática: execução de código na máquina. Por isso
+ * toda mutação precisa vir da própria tela: Origin (ou, na falta, o Referer) com o mesmo
+ * host do pedido.
+ */
+function veioDaTela(req) {
+  let origem = req.headers.origin;
+  if (!origem && req.headers.referer) {
+    try { origem = new URL(req.headers.referer).origin; } catch { origem = ''; }
+  }
+  if (!origem || origem === 'null') return { ok: false, visto: origem || '(ausente)' };
+  let hostOrigem;
+  try { hostOrigem = new URL(origem).host.toLowerCase(); } catch { return { ok: false, visto: '(ilegível)' }; }
+  const hostPedido = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  return { ok: !!hostPedido && hostOrigem === hostPedido, visto: hostOrigem };
+}
+
+
 function registrar(router, { CONFIG }) {
   const cfgArquivo = (CONFIG && CONFIG.sessoes) || {};
   let cacheChave = null; // { em, valor, erro }
@@ -130,20 +164,6 @@ function registrar(router, { CONFIG }) {
     return id ? `${base}?sessoes=pedidos&card=${encodeURIComponent(id)}` : `${base}?sessoes=pedidos`;
   }
 
-  /** Separa o caminho em partes decodificadas e minúsculas. null quando o caminho é suspeito. */
-  function partesDoCaminho(resto) {
-    const cruas = resto.split('/').slice(1); // o primeiro item é o vazio antes da primeira barra
-    if (cruas.length && cruas[cruas.length - 1] === '') cruas.pop();
-    const partes = [];
-    for (const p of cruas) {
-      let d;
-      try { d = decodeURIComponent(p); } catch { return null; }
-      if (!d || d === '.' || d === '..' || /[\\/\u0000]/.test(d)) return null;
-      partes.push(d);
-    }
-    return partes;
-  }
-
   function qualBloqueio(partes) {
     const a = (partes[0] || '').toLowerCase();
     if (a.startsWith('cofre')) return 'cofre';
@@ -170,25 +190,6 @@ function registrar(router, { CONFIG }) {
     if (res.writableEnded) return;
     if (res.headersSent) { res.destroy(); return; }
     res.status(status).json(Object.assign({ ok: false }, corpo));
-  }
-
-  /**
-   * Trava contra pedido forjado por outro site (CSRF). O cookie de login do painel não tem
-   * SameSite, então Safari e Firefox o mandam em um form POST vindo de qualquer página. Aqui
-   * um POST criaria um card com permissão automática: execução de código na máquina. Por isso
-   * toda mutação precisa vir da própria tela: Origin (ou, na falta, o Referer) com o mesmo
-   * host do pedido.
-   */
-  function veioDaTela(req) {
-    let origem = req.headers.origin;
-    if (!origem && req.headers.referer) {
-      try { origem = new URL(req.headers.referer).origin; } catch { origem = ''; }
-    }
-    if (!origem || origem === 'null') return { ok: false, visto: origem || '(ausente)' };
-    let hostOrigem;
-    try { hostOrigem = new URL(origem).host.toLowerCase(); } catch { return { ok: false, visto: '(ilegível)' }; }
-    const hostPedido = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
-    return { ok: !!hostPedido && hostOrigem === hostPedido, visto: hostOrigem };
   }
 
   function tratar(req, res) {
@@ -350,4 +351,10 @@ function registrar(router, { CONFIG }) {
   router.all([PREFIXO, `${PREFIXO}/*`], tratar);
 }
 
-module.exports = { registrar };
+/** O endereço do DG Telegram configurado (env ou config.json), ou '' quando não há: é o que escolhe a fonte da aba. */
+function urlConfigurada(CONFIG) {
+  const cfg = (CONFIG && CONFIG.sessoes) || {};
+  return (process.env.DGCLAW_PANEL_SESSOES_URL || cfg.url || '').trim();
+}
+
+module.exports = { registrar, urlConfigurada, veioDaTela, partesDoCaminho };

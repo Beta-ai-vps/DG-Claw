@@ -407,6 +407,22 @@ function aplicarTooltipsDasAbas() {
 }
 
 /**
+ * Uma aba que descobre depois do boot que o texto dela mudou (a Sessões, que só sabe se está
+ * em modo local ou ligada ao DG Telegram depois de perguntar ao servidor) troca aqui o
+ * subtítulo e o balão, sem tocar nas constantes acima.
+ */
+window.definirTextoDaAba = function definirTextoDaAba(tab, { subtitulo, explicacao }) {
+  if (subtitulo) SUBTITULO_ABA[tab] = subtitulo;
+  if (explicacao) EXPLICACAO_ABA[tab] = explicacao;
+  aplicarTooltipsDasAbas();
+  const ativa = document.querySelector('.tab.active');
+  if (subtitulo && ativa && ativa.dataset.tab === tab) {
+    const sub = document.getElementById('subtitulo-aba');
+    if (sub) sub.textContent = subtitulo;
+  }
+};
+
+/**
  * "vá em Operações" vira um link que LEVA até lá.
  *
  * Mandar a pessoa procurar uma aba pelo nome, num menu de doze itens, é metade
