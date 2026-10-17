@@ -60,7 +60,7 @@ Para instalar manualmente, são três comandos:
 ```sh
 git clone https://github.com/DGatoM/DG-Claw
 cd DG-Claw
-sudo ./install.sh --usuario admin
+sudo ./install.sh --usuario admin --com-imagem
 ```
 
 O instalador não pede senha. Ao terminar, mostra o link do painel, o usuário e um link de primeiro
