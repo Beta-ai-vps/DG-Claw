@@ -414,6 +414,43 @@ test('upload: acima do limite configurado leva 413 com motivo', async () => {
   } finally { await s.fechar(); }
 });
 
+test('upload de arquivo que não é mídia: marcador com o caminho, MIME certo e download como anexo', async () => {
+  const s = await cenario();
+  try {
+    const limite = '----doc1234';
+    const h = { 'Content-Type': `multipart/form-data; boundary=${limite}` };
+    const casos = [
+      ['pacote.zip', 'application/zip'], ['relatorio.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      ['planilha.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], ['dados.csv', 'text/csv; charset=utf-8'],
+      ['notas.md', 'text/plain; charset=utf-8'], ['config.json', 'application/json'], ['script.py', 'application/octet-stream'],
+    ];
+    for (const [nome, mime] of casos) {
+      const r = await s.t.c.post('/api/v1/agents/ana/upload', { corpo: multipart(limite, { enviar: '0', cliente_id: 'doc-' + Buffer.from(nome).toString('hex') }, nome, Buffer.from('PK dados')), headers: h });
+      assert.equal(r.status, 201, r.texto);
+      assert.equal(r.json.anexo.kind, 'document', nome);
+      assert.equal(r.json.marcador, `[anexo: ${r.json.anexo.path}]`, 'o agente recebe o caminho absoluto');
+      assert.match(r.json.anexo.path, /^\/home\/agente\/uploads\//);
+      const d = await s.t.c.get(r.json.media.url + (r.json.media.url.includes('?') ? '&' : '?') + 'baixar=1');
+      assert.equal(d.status, 200, nome);
+      assert.equal(d.headers['content-type'], mime, nome);
+    }
+  } finally { await s.fechar(); }
+});
+
+test('upload: /agents expõe o limite real e o 413 diz o tamanho do limite em MB', async () => {
+  const s = await cenario({}, { env: { DGCLAW_WEB_MAX_UPLOAD_MB: '1' } });
+  try {
+    const lista = await s.t.c.get('/api/v1/agents');
+    assert.equal(lista.json.limite_upload_bytes, 1024 * 1024);
+    const limite = 'xx98';
+    const corpo = Buffer.concat([Buffer.from(`--${limite}\r\nContent-Disposition: form-data; name="file"; filename="g.zip"\r\n\r\n`), Buffer.alloc(2 * 1024 * 1024, 1), Buffer.from(`\r\n--${limite}--\r\n`)]);
+    const r = await s.t.c.post('/api/v1/agents/ana/upload', { corpo, headers: { 'Content-Type': `multipart/form-data; boundary=${limite}` } });
+    assert.equal(r.status, 413);
+    assert.equal(r.json.ok, false);
+    assert.match(r.json.erro, /limite de 1 MB/);
+  } finally { await s.fechar(); }
+});
+
 test('media: arquivo fora do home do agente é recusado (inclusive por link simbólico)', async () => {
   const s = await cenario();
   try {

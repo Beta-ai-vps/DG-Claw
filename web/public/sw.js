@@ -11,6 +11,7 @@ const ESTATICOS = [
   '/onboarding.js', '/onboarding.css',
   '/campo-cofre.js', '/campo-cofre.css',
   '/barra.js', '/barra.css',
+  '/sigilo.js', '/sigilo.css',
   '/login.css', '/login.js',
   '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',

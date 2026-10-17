@@ -546,3 +546,22 @@ html[data-tema="escuro"] .pc-erro{background:#4a1f1b;color:#ffd9d4}
 }
 @media(prefers-reduced-motion:reduce){.pc.entra{animation:none}}
 .meta.fila{color:#8a5a00;font-weight:600}
+
+/* Cartão de arquivo que não é mídia (zip, planilha, texto, código...). Usa as mesmas
+   cores do .midoff e do botão de baixar, que já têm versão para o tema escuro. */
+.cartaoarq{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:44px;
+  margin:0 0 6px;padding:8px 52px 8px 10px;background:#e8ebe8;border:1px solid var(--line);
+  border-radius:10px;color:#38523f;font:inherit;text-align:left;cursor:default}
+button.cartaoarq{cursor:pointer}
+.cartaoarq-ic{flex:0 0 auto;font-size:24px;line-height:1}
+.cartaoarq-txt{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
+.cartaoarq-nome{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cartaoarq-info{font-size:11.5px;color:#6b7f70}
+.cxarq .midbx{top:50%;transform:translateY(-50%);margin-top:-3px;width:36px;height:36px}
+.midgrade .cartaoarq{padding-right:10px}
+html[data-tema="escuro"] .cartaoarq{background:#26302a;color:#dbe6dc}
+html[data-tema="escuro"] .cartaoarq-info{color:#9bb0a0}
+@media (prefers-color-scheme: dark){
+  html:not([data-tema="claro"]) .cartaoarq{background:#26302a;color:#dbe6dc}
+  html:not([data-tema="claro"]) .cartaoarq-info{color:#9bb0a0}
+}

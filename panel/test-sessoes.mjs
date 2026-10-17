@@ -126,28 +126,27 @@ const servidores = [];
 
 try {
   // ─── 1. desligada ──────────────────────────────────────────────────────────
-  console.log('\n1. Sem URL ou sem chave: 501 dizendo qual falta');
+  console.log('\n1. Sem URL cai no modo local; com URL e sem chave, o proxy diz o que falta');
   {
+    // Sem DGCLAW_PANEL_SESSOES_URL a aba é do modo local (lib/sessoes-local.js, coberto em test-sessoes-local.mjs).
     const sem = await subirPainel({});
     servidores.push(sem);
     const cfg = await ler(await sem.pedir('/api/sessoes-config'));
-    ok(cfg.status === 200 && cfg.json.ligado === false, '/api/sessoes-config diz ligado:false');
-    ok(/DGCLAW_PANEL_SESSOES_URL/.test(cfg.json.motivo) && /chave/.test(cfg.json.motivo), 'o motivo cita a URL e a chave que faltam');
-    const r = await ler(await sem.pedir('/api/sessoes'));
-    ok(r.status === 501 && r.json.ok === false && /não está ligada nesta instalação/.test(r.json.erro), 'GET /api/sessoes devolve 501 com a frase');
+    ok(cfg.status === 200 && cfg.json.ligado === true && cfg.json.modo === 'local', 'sem URL: /api/sessoes-config é a do modo local (ligado, modo local)');
     sem.parar();
 
     const soUrl = await subirPainel({ DGCLAW_PANEL_SESSOES_URL: URL_ORIGEM });
     servidores.push(soUrl);
+    const cfg2 = await ler(await soUrl.pedir('/api/sessoes-config'));
+    ok(cfg2.json.ligado === false && /falta a chave/.test(cfg2.json.motivo) && cfg2.json.modo === undefined, 'só a URL: continua sendo o proxy e o motivo diz que falta a chave');
     const r2 = await ler(await soUrl.pedir('/api/sessoes'));
     ok(r2.status === 501 && /falta a chave/.test(r2.json.erro) && !/falta DGCLAW_PANEL_SESSOES_URL/.test(r2.json.erro), 'só a URL: a frase diz que falta a chave');
     soUrl.parar();
 
     const soChave = await subirPainel({ DGCLAW_PANEL_SESSOES_KEY: CHAVE });
     servidores.push(soChave);
-    const r3 = await ler(await soChave.pedir('/api/sessoes'));
-    ok(r3.status === 501 && /falta DGCLAW_PANEL_SESSOES_URL/.test(r3.json.erro), 'só a chave: a frase diz que falta a URL');
-    ok(!r3.buf.toString().includes(CHAVE), 'e a frase não mostra o valor da chave');
+    const r3 = await ler(await soChave.pedir('/api/sessoes-config'));
+    ok(r3.json.modo === 'local' && !r3.buf.toString().includes(CHAVE), 'só a chave (sem URL): modo local, e a resposta não mostra o valor da chave');
     soChave.parar();
   }
 

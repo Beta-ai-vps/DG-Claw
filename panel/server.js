@@ -170,9 +170,9 @@ const app = express();
 app.set('trust proxy', 'loopback');
 app.use(auth.cabecalhos);
 app.use(cookieParser());
-// A aba Sessões (lib/sessoes-proxy.js) repassa o corpo em STREAM para o DG Telegram (anexo de
-// até 100 MB). Um parser global que lesse o corpo antes deixaria o proxy sem nada para
-// repassar, então /api/sessoes passa direto. O caminho aqui ainda leva o prefixo BASE.
+// A aba Sessões (lib/sessoes-proxy.js e lib/sessoes-local.js) lê o corpo por conta própria: o proxy
+// o repassa em STREAM para o DG Telegram (anexo de até 100 MB) e o modo local trata o multipart do
+// anexo. Um parser global que lesse o corpo antes deixaria os dois sem nada, então /api/sessoes passa direto. O caminho aqui ainda leva o prefixo BASE.
 const PREFIXO_SESSOES = `${BASE}/api/sessoes`.toLowerCase(); // o Express casa rota sem olhar maiúscula
 const semParser = (parser) => (req, res, next) => {
   const p = req.path.toLowerCase();
@@ -1145,8 +1145,12 @@ router.get('/api/pulso', async (req, res) => {
 require('./lib/rotas-painel').registrar(router, { CONFIG, pulso, serverDir: __dirname, diagnostico: () => rotasSaude.saude.diagnostico() });
 // A saúde da memória de trabalho, para o cartão da aba Status (05/10/2026).
 require('./lib/wm-status').registrar(router, { CONFIG });
-// A aba Sessões (12/10/2026): proxy fino para os cards do Bunker, via DG Telegram. Ver docs/SESSOES.md.
-require('./lib/sessoes-proxy').registrar(router, { CONFIG });
+// A aba Sessões (12/10/2026). Duas fontes para a mesma tela: com DGCLAW_PANEL_SESSOES_URL (ou
+// sessoes.url no config.json) é o proxy fino para os cards do Bunker via DG Telegram; sem ela é o
+// modo local, onde cada card é uma sessão paralela do runner deste agente. Ver docs/SESSOES.md.
+const sessoesProxy = require('./lib/sessoes-proxy');
+if (sessoesProxy.urlConfigurada(CONFIG)) sessoesProxy.registrar(router, { CONFIG });
+else require('./lib/sessoes-local').registrar(router, { CONFIG });
 
 // ─── API: Apps (os aplicativos que o agente opera) ────────────
 // Endpoint do nucleo, sem poder: quem decide se ha app e o proprio agente, pelo

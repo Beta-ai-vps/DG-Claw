@@ -191,8 +191,10 @@ COPY --from=runner-build /build/runner/package.json /opt/dgclaw/app/runner/packa
 # mesmo que o arquivo ainda não exista; fica pendente até o plugin trazer o arquivo.
 # dgclaw-card: o agente abre um card em outro provedor (a skill cai no caminho completo se
 # o link faltar).
+# dgclaw-abrir-zip: extrai zip recebido como anexo numa pasta nova, com as travas contra zip slip e zip bomba.
 RUN ln -s /opt/dgclaw/app/bin/dgclaw-agente /usr/local/bin/dgclaw-agente \
- && ln -s /opt/dgclaw/app/bin/dgclaw-card /usr/local/bin/dgclaw-card
+ && ln -s /opt/dgclaw/app/bin/dgclaw-card /usr/local/bin/dgclaw-card \
+ && ln -s /opt/dgclaw/app/bin/dgclaw-abrir-zip /usr/local/bin/dgclaw-abrir-zip
 
 # O painel é JavaScript puro (express e afins), sem parte nativa: instala aqui, sem compilador.
 RUN cd /opt/dgclaw/app/panel && npm install --omit=dev --no-audit --no-fund && npm cache clean --force

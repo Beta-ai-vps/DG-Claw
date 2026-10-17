@@ -80,7 +80,7 @@ async function boot() {
   }
   // voz e microfone: o servidor diz por agente (ou, se preferir, uma vez para todos)
   const cap = nome => (ag[nome] !== undefined ? ag[nome] : d[nome]) === true;
-  iniciaTela(ag, lista, { voz: cap('voz'), microfone: cap('microfone'), conta: d.usuario });
+  iniciaTela(ag, lista, { voz: cap('voz'), microfone: cap('microfone'), conta: d.usuario, limiteUpload: d.limite_upload_bytes });
 }
 
 function iniciaTela(AGENTE, agentesLista, caps) {
@@ -900,6 +900,9 @@ function htmlMidia(m) {
     return `<span class="midaudio combx"><audio controls playsinline preload="none" ` +
            `data-aud="${esc(md.id)}" src="${esc(md.url)}"></audio>${botaoBaixaMidia(md, rot)}</span>`;
   }
+  if (md.kind === 'document' && !md.thumb && !/\.pdf$/i.test(md.nome || '')) {
+    return `<span class="midcx cxarq">${cartaoArquivo(md, md.id)}${botaoBaixaMidia(md, rot)}</span>`;
+  }
   const legenda = esc(md.nome || '') + (md.bytes ? ' (' + tamanhoHumano(md.bytes) + ')' : '');
   if (md.thumb) {
     return `<span class="midcx"><button class="mid" data-mid="${esc(md.id)}" aria-label="Abrir ${rot}">` +
@@ -913,6 +916,33 @@ function htmlMidia(m) {
   return `<span class="midcx"><button class="mid semthumb" data-mid="${esc(md.id)}">` +
          `<img alt="" src="" hidden><span class="midfb">${rot} ${legenda}</span></button>` +
          `${botaoBaixaMidia(md, rot)}</span>`;
+}
+
+/* Cartão de arquivo que não é mídia (zip, planilha, texto, código...): ícone pelo tipo,
+   nome como texto comum (outras partes da tela leem e mascaram o texto do balão, então
+   o nome não pode ficar só em atributo) e "tamanho · TIPO". */
+const ICONES_ARQ = [
+  ['🗜️', /^(zip|rar|7z|tar|gz|tgz|bz2|xz)$/],
+  ['📊', /^(xlsx|xls|csv|tsv|ods|numbers)$/],
+  ['📝', /^(docx?|odt|rtf|txt|md|pages)$/],
+  ['📽️', /^(pptx?|key|odp)$/],
+  ['🧩', /^(js|mjs|cjs|ts|tsx|jsx|py|sh|bash|json|html?|css|ya?ml|xml|sql|toml|ini|rb|go|rs|java|c|cpp|h|php|ipynb)$/],
+];
+function extDe(nome) {
+  const m = /\.([A-Za-z0-9]{1,8})$/.exec(nome || '');
+  return m ? m[1].toLowerCase() : '';
+}
+function cartaoArquivo(md, mid) {
+  const ext = extDe(md.nome);
+  const ic = (ICONES_ARQ.find(i => i[1].test(ext)) || ['📄'])[0];
+  const info = [md.bytes ? tamanhoHumano(md.bytes) : '', ext ? ext.toUpperCase() : 'ARQUIVO']
+    .filter(Boolean).join(' · ');
+  const abre = mid ? ` data-mid="${esc(mid)}"` : '';
+  const tag = mid ? 'button' : 'span';
+  return `<${tag} class="cartaoarq"${abre}>` +
+         `<span class="cartaoarq-ic" aria-hidden="true">${ic}</span>` +
+         `<span class="cartaoarq-txt"><span class="cartaoarq-nome">${esc(md.nome || 'arquivo')}</span>` +
+         `<span class="cartaoarq-info">${esc(info)}</span></span></${tag}>`;
 }
 
 /* O ⬇ de todo anexo da thread: um link com `download`, FORA do botão da mídia
@@ -940,6 +970,9 @@ function htmlAnexosLocal(lista) {
     if (a.previa && a.kind === 'video') {
       return `<span class="mid"><video src="${a.previa}" muted playsinline ` +
              `preload="metadata"></video></span>`;
+    }
+    if (a.kind === 'document' && !/\.pdf$/i.test(a.nome || '')) {
+      return cartaoArquivo({ nome: a.nome, bytes: a.bytes }, null);
     }
     return `<span class="midoff">${ROTULO_MIDIA[a.kind] || '📄 arquivo'} ` +
            `${esc(a.nome || '')} (${tamanhoHumano(a.bytes)})</span>`;
@@ -2236,16 +2269,18 @@ wrap.addEventListener('click', ev => {
 }, true);
 
 wrap.addEventListener('click', ev => {
-  const alvo = ev.target.closest ? ev.target.closest('.mid[data-mid]') : null;
+  const alvo = ev.target.closest ? ev.target.closest('.mid[data-mid], .cartaoarq[data-mid]') : null;
   if (alvo) { destravarAudio(); abreLightbox(alvo.getAttribute('data-mid')); }
 });
 
 const ehToque = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) ||
   /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
 
-/* ── Mandar arquivo (foto, vídeo, áudio, PDF) ─────────────────────────────── */
-/* Um arquivo por pedido (POST /upload, multipart): até 200 MB cada. */
-const TETO_UPLOAD = 200 * 1024 * 1024;
+/* ── Mandar arquivo (qualquer tipo: foto, vídeo, áudio, PDF, zip, planilha, código...) ── */
+/* Um arquivo por pedido (POST /upload, multipart). O limite real é o do servidor
+   (DGCLAW_WEB_MAX_UPLOAD_MB) e vem em /api/v1/agents; recusar aqui, antes de subir, evita
+   gastar o 4G do celular num envio que o servidor ia devolver com 413. */
+const TETO_UPLOAD = caps.limiteUpload > 0 ? caps.limiteUpload : 50 * 1024 * 1024;
 
 function kindLocal(file) {
   const t = (file.type || '').toLowerCase();
@@ -2576,7 +2611,7 @@ function anexaArquivos(lista) {
     if (f.size === 0) { recusados.push('"' + nome + '" tem 0 byte'); continue; }
     if (f.size > TETO_UPLOAD) {
       recusados.push('"' + nome + '" tem ' + tamanhoHumano(f.size) +
-                     ' e o limite é 200 MB por arquivo');
+                     ' e o limite aqui é ' + Math.round(TETO_UPLOAD / 1048576) + ' MB');
       continue;
     }
     if (anexos.length >= MAX_ANEXOS) { deFora.push(nome); continue; }
@@ -3620,6 +3655,7 @@ function passosTutorial() {
     oque: 'Um cartão que aparece no fim da conversa quando ' + nome + ' ainda não tem a sua conta do Claude ou do Codex conectada. O que você vê agora é só um exemplo.',
     como: 'Toque em Conectar, abra a página de login, entre com a sua conta e, no Claude, cole aqui o código que ela mostrar no fim. A tela confere sozinha e avisa quando terminar. Para abrir o cartão a qualquer hora, escreva /login no campo de mensagem e envie: nada vai para o agente.',
     porque: 'Sem conta conectada o agente não consegue responder. Assim você resolve aqui mesmo, sem abrir terminal.' });
+  if (window.DGSigilo) passos.push(window.DGSigilo.passoTour());
   passos.push(passoAlertas());
   passos.push(passoAcervo());
   return passos;
