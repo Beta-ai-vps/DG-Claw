@@ -177,6 +177,7 @@ const btnFim = $('btnFim'), fimNovas = $('fimNovas');
 const API = '/api/v1/agents/' + encodeURIComponent(AGENTE.id);
 const AQUI = location.pathname + location.search;
 const EH_ADMIN = AGENTE.tipo === 'admin';
+if (window.campoCofre) window.campoCofre.configurar({ agente: AGENTE.id, enviar: texto => new Promise((resolve, reject) => { enviarTexto(texto, null, { aoEntregar: (ok, motivo) => ok ? resolve() : reject(new Error(motivo || 'O agente não recebeu a mensagem.')) }); }) });
 if (window.DGOnboarding) window.DGOnboarding.iniciar({ agente: AGENTE, enviar: texto => new Promise((resolve, reject) => { enviarTexto(texto, null, { aoEntregar: (ok, motivo) => ok ? resolve() : reject(new Error(motivo || 'O Admin não recebeu a mensagem.')) }); }), refazer: () => render({ semRolar: true }) });
 let novasAbaixo = 0, setaVisivel = false;   // a seta pro fim e o contador dela
 /* mp3 de 0,08s em silêncio: é o que destrava o áudio no iOS dentro do gesto. */
@@ -851,6 +852,9 @@ function paragrafos(txt, fmt) {
       html += textoEmParagrafos(t, fmt);
       continue;
     }
+    // ```dgcofre: campo de senha (campo-cofre.js); nome inválido cai no bloco normal
+    const cofre = window.campoCofre && window.campoCofre.blocoParaHtml(partes[i], txt);
+    if (cofre) { html += cofre; continue; }
     let cod = partes[i].replace(/^[A-Za-z0-9_+.-]{1,20}\n/, '')
                          .replace(/^\n+/, '').replace(/\s+$/, '');
     // no MarkdownV2, dentro do bloco só a crase e a barra vêm escapadas
