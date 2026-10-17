@@ -50,15 +50,22 @@ igual "imagem pronta: sai com 0" "0" "$?"
 afirma "imagem pronta: diz pronta" grep -q "pronta" "$TMP/o.txt"
 touch "$STUB_ESTADO/sem-imagem"
 dgclaw imagem status >"$TMP/o.txt" 2>&1
-igual "sem imagem: sai com 1" "1" "$?"
+igual "sem imagem: e status, sai com 0" "0" "$?"
 afirma "sem imagem e sem construcao: diz que nao esta pronta" grep -q "NAO esta pronta" "$TMP/o.txt"
+dgclaw imagem status --exigir-pronta >"$TMP/o.txt" 2>&1
+igual "sem imagem com --exigir-pronta: sai com 1" "1" "$?"
 echo "ativo" >/dev/null; echo "activating" >"$STUB_ESTADO/svc-dgclaw-imagem.service"
 dgclaw imagem status >"$TMP/o.txt" 2>&1
+igual "construindo: e status, sai com 0" "0" "$?"
 afirma "construindo: diz que esta sendo construida" grep -q "sendo construida" "$TMP/o.txt"
+dgclaw imagem status --exigir-pronta >"$TMP/o.txt" 2>&1
+igual "construindo com --exigir-pronta: sai com 1" "1" "$?"
 mkdir -p "$DGCLAW_RAIZ/var/log/dgclaw"; printf 'linha1\nERRO no passo 7\n' >"$DGCLAW_RAIZ/var/log/dgclaw/imagem.log"
 echo failed >"$STUB_ESTADO/svc-dgclaw-imagem.service"
 dgclaw imagem status >"$TMP/o.txt" 2>&1
+igual "construcao falhou: sai com 1" "1" "$?"
 afirma "falhou: mostra a cauda do log" grep -q "ERRO no passo 7" "$TMP/o.txt"
+afirma "falhou: diz que falhou" grep -q "FALHOU" "$TMP/o.txt"
 dgclaw imagem construir >/dev/null 2>&1
 afirma "construir inicia a unidade em segundo plano" grep -q '^systemctl start --no-block dgclaw-imagem.service' "$STUB_LOG"
 dgclaw imagem construir --agora >/dev/null 2>&1

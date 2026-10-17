@@ -77,7 +77,7 @@ Agentes
       Exemplo:  dgclaw agente remover ana --sim
 
 Imagem dos agentes
-  dgclaw imagem status                   diz se a imagem esta pronta, construindo ou falhou
+  dgclaw imagem status [--exigir-pronta] diz se a imagem esta pronta, construindo ou falhou
   dgclaw imagem construir [--agora]      constroi a imagem (em segundo plano, ou aqui com --agora)
 
 Painel
@@ -1278,10 +1278,18 @@ agente_main() {
 
 # --- imagem ---------------------------------------------------------------------------------
 
+# Status e informacao, nao erro: "nao construida" e "construindo" saem com 0 (o chat do Admin
+# pinta de vermelho todo comando que sai != 0). Falha de verdade (a construcao quebrou, podman
+# ausente) sai com 1. Quem precisa da imagem pronta para seguir usa --exigir-pronta.
 imagem_status() {
+    local exigir=0 ativo=""
+    case "${1:-}" in
+        "") ;;
+        --exigir-pronta) exigir=1 ;;
+        *) falha "opcao desconhecida: $1" "use: dgclaw imagem status [--exigir-pronta]" ;;
+    esac
     exigir_ferramentas podman
     carregar_env_dgclaw
-    local ativo=""
     if podman image exists "$DGCLAW_IMAGEM" >/dev/null 2>&1; then
         ok "imagem dos agentes pronta ($DGCLAW_IMAGEM)"
         return 0
@@ -1292,6 +1300,12 @@ imagem_status() {
         active|activating)
             printf 'A imagem esta sendo construida agora (pode levar uns 10 a 20 minutos). Ultimas linhas do log:\n'
             [ -f "$DG_LOG/imagem.log" ] && tail -n 5 "$DG_LOG/imagem.log" | sed 's/^/   /'
+            return "$exigir"
+            ;;
+        failed)
+            printf 'A construcao da imagem dos agentes FALHOU. Ultimas linhas do log:\n'
+            [ -f "$DG_LOG/imagem.log" ] && tail -n 15 "$DG_LOG/imagem.log" | sed 's/^/   /'
+            printf 'Rodar de novo e seguro: dgclaw imagem construir\n'
             return 1
             ;;
         *)
@@ -1303,7 +1317,7 @@ imagem_status() {
                 printf 'Ainda nao existe log de construcao (%s).\n' "$DG_LOG/imagem.log"
             fi
             printf 'Para construir: dgclaw imagem construir\n'
-            return 1
+            return "$exigir"
             ;;
     esac
 }
@@ -1342,7 +1356,7 @@ imagem_main() {
     case "$sub" in
         status) imagem_status "$@" ;;
         construir) imagem_construir "$@" ;;
-        *) falha "faltou dizer o que fazer com a imagem." "use: dgclaw imagem status  ou  dgclaw imagem construir [--agora]" ;;
+        *) falha "faltou dizer o que fazer com a imagem." "use: dgclaw imagem status [--exigir-pronta]  ou  dgclaw imagem construir [--agora]" ;;
     esac
 }
 
