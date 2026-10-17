@@ -723,6 +723,21 @@ for u in /etc/systemd/system/dgclaw-*.service; do
     [ -f "$u" ] || continue
     sed -i 's|^User=root$|User=agente|; s|^Environment=HOME=/root$|Environment=HOME=/home/agente|' "$u"
 done
+# As skills que o proprio agente usa (agenda, memoria...) vem na imagem, mas o Claude Code
+# so as enxerga em ~/.claude/skills. Sem isto o agente nasce sem elas, e "me lembra daqui a
+# 2 minutos" fica sem o roteiro da agenda. Link (e nao copia): a imagem nova traz a versao
+# nova sozinha. As do Admin (criar-agente, uninstall, trocar-dominio...) ficam de fora.
+mkdir -p "$CASA/.claude/skills"
+chown agente:agente "$CASA/.claude" "$CASA/.claude/skills"
+for s in agenda aprender memory avatar report; do
+    origem="/opt/dgclaw/app/skills/$s"
+    alvo="$CASA/.claude/skills/$s"
+    [ -f "$origem/SKILL.md" ] || { echo "aviso: a skill $s nao esta na imagem ($origem); sigo sem ela." >&2; continue; }
+    if [ -e "$alvo" ] && [ ! -L "$alvo" ]; then echo "aviso: $alvo ja existe e nao e link; deixo como esta." >&2; continue; fi
+    ln -sfn "$origem" "$alvo"
+    chown -h agente:agente "$alvo"
+done
+
 systemctl daemon-reload
 # --now porque o container ja esta de pe: so `enable` deixaria o runner esperando um
 # reboot que ninguem vai dar.
