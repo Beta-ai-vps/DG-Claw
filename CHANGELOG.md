@@ -9,6 +9,19 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ### Adicionado
 
+- Modo escondido (botão 👁 no cabeçalho da conversa): troca por asteriscos nomes, empresas, valores,
+  e-mails, telefones, documentos e chaves de todas as mensagens da tela, para o dono mostrar a conversa numa
+  aula sem expor cliente. Um filtro automático age na hora e um modelo (Claude Haiku com `ANTHROPIC_API_KEY`, ou
+  `gpt-4.1-mini` com `OPENAI_API_KEY`) aponta o resto pela rota `POST /api/v1/sigilo`. Mensagem ainda não
+  analisada aparece como "escondendo…", nunca crua. Guia em `docs/MODO-ESCONDIDO.md`.
+- A aba Sessões do painel agora funciona sozinha em cada agente (modo local): cada card é uma sessão
+  paralela do runner do próprio agente. Dá para ver o que cada uma faz, ler a conversa, aprovar ou negar
+  pedidos de permissão (só com login; chave de API não decide), mandar recado, anexar arquivo, arquivar,
+  apagar, retomar na mesma conversa ou numa conversa nova, renomear, dar estrela e fazer handoff. Os cards
+  que o agente abre com o `dgclaw-card` aparecem ali também, e tudo tem rota de API com chave. Sem
+  `DGCLAW_PANEL_SESSOES_URL` o painel usa o modo local; com ela, continua usando o DG Telegram.
+- O limite de cards abertos ao mesmo tempo sobe de 3 para 8 nas instalações novas
+  (`RUNNER_MAX_SESSOES_EXTRAS` na unidade do runner).
 - Modo foco (backend): lista curta por agente que o agente monta e o dono tica na tela. Rotas
   `/api/v1/foco/<agente>` (lista, itens, eventos com cursor e `docs.md`), evento `foco` no stream da
   conversa, gancho `foco-hook` (`promptHooks` do `runner.json`) que avisa o agente dos tiques do dono no

@@ -196,8 +196,9 @@ o agente cuida do resto. É a skill `cards` (`/dgclaw:cards`) usando o comando `
 (`abrir`, `mandar`, `estado`, `esperar`, `ler`, `listar`, `fechar`), que fala com as rotas
 `POST /api/sessoes`, `/input`, `/conversation` e `DELETE /api/sessoes/<id>` do runner.
 
-**Limite:** no máximo 3 cards abertos ao mesmo tempo (`RUNNER_MAX_SESSOES_EXTRAS` na unidade do
-runner, inteiro >= 0). A 4ª recebe 429 `LIMITE_DE_SESSOES`, e o comando diz como fechar um.
+**Limite:** no máximo 8 cards abertos ao mesmo tempo (`RUNNER_MAX_SESSOES_EXTRAS` na unidade do
+runner, inteiro >= 0; o padrão do runner sem a variável é 3, e a unidade do container põe 8). Os cards aparecem
+na aba Sessões do painel. A 4ª recebe 429 `LIMITE_DE_SESSOES`, e o comando diz como fechar um.
 
 **As quatro condições de segurança** (aprovadas pelo card de segurança):
 

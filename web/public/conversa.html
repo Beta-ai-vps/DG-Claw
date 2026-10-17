@@ -26,6 +26,7 @@ if (navigator.standalone === true ||
 <link rel="stylesheet" href="/onboarding.css">
 <link rel="stylesheet" href="/menu-lado.css">
 <link rel="stylesheet" href="/campo-cofre.css">
+<link rel="stylesheet" href="/sigilo.css">
 <link rel="stylesheet" href="/foco-tela.css">
 </head>
 <body>
@@ -113,8 +114,7 @@ if (navigator.standalone === true ||
   <div class="linha1">
     <button id="btnAnexo" aria-label="Anexar fotos, vídeos, áudios ou PDFs"
             title="Anexar fotos, vídeos, áudios ou PDFs (vários de uma vez)" data-tour="anexo">📎</button>
-    <input type="file" id="arquivo" multiple
-           accept="image/*,video/*,audio/*,.pdf,application/pdf">
+    <input type="file" id="arquivo" multiple>
     <div class="campo" data-tour="campo"><textarea id="entrada" rows="1" placeholder="Escrever mensagem"
               autocomplete="off" enterkeyhint="send"></textarea><span id="micTxt" aria-live="polite"></span></div>
     <button id="btnMic" aria-label="Gravar áudio" data-tour="mic">🎤</button>
@@ -146,6 +146,7 @@ if (navigator.standalone === true ||
 <script src="/menu-lado.js"></script>
 <script src="/onboarding.js"></script>
 <script src="/campo-cofre.js"></script>
+<script src="/sigilo.js"></script>
 <script src="/foco-tela.js"></script>
 <script src="/conversa.js"></script>
 <script>

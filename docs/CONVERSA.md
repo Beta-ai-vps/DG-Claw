@@ -34,6 +34,11 @@ Telegram e outros canais são opcionais. A instalação inicial funciona pelo ch
 sem configurar um bot. O histórico disponível depende dos registros da sessão e das conexões
 habilitadas no agente.
 
+## Modo escondido
+
+O botão 👁 do cabeçalho esconde nomes, valores e contatos de todas as mensagens para mostrar a tela
+numa aula. Como funciona, variáveis, cache e limites: [MODO-ESCONDIDO.md](MODO-ESCONDIDO.md).
+
 ## Campo de senha na conversa
 
 Quando o dono vai guardar uma chave de API, o agente responde com um bloco ```` ```dgcofre ````
