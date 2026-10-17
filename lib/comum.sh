@@ -206,6 +206,64 @@ carregar_env_dgclaw() {
     DGCLAW_IMAGEM="${DGCLAW_IMAGEM:-$DG_IMAGEM_PADRAO}"
 }
 
+# --- dominio e Caddy (usados pelo install.sh e por `dgclaw dominio`) ------------------
+# ip_publico: o IP publico desta maquina (imprime so ele); falha se nenhum servico responder.
+ip_publico() {
+    local url ip
+    for url in https://api.ipify.org https://ifconfig.me; do
+        # Se o primeiro servico falhar, o segundo e a reserva: por isso o erro aqui nao para nada.
+        ip="$(curl --proto '=https' --tlsv1.2 -fsS --max-time 10 "$url" 2>/dev/null)" || continue
+        if [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+            printf '%s' "$ip"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# dns_publico_aponta <host> <ip>: 1.1.1.1 E 8.8.8.8 precisam devolver o IP.
+# Nunca a resolucao local: na Hostinger o /etc/hosts aponta o nome da maquina para 127.0.1.1.
+dns_publico_aponta() {
+    local host="$1" ip="$2" servidor resp
+    for servidor in 1.1.1.1 8.8.8.8; do
+        # Sem resposta (timeout, sem internet para o DNS) significa "nao aponta".
+        resp="$(dig +short +time=3 +tries=1 "@$servidor" "$host" A 2>/dev/null)" || resp=""
+        # Here-string, sem pipe: com pipefail, `printf | grep -q` pode devolver 141 (SIGPIPE)
+        # mesmo achando o IP, e isso viraria um falso "o dominio nao aponta para ca".
+        if ! grep -qFx -- "$ip" <<<"$resp"; then return 1; fi
+    done
+    return 0
+}
+
+caddyfile_e_padrao() {
+    local cf="$1" sites
+    grep -q 'root \* /usr/share/caddy' "$cf" || return 1
+    sites="$(grep -E '^[^[:space:]#}].*\{[[:space:]]*$' "$cf" || true)" # sem blocos = nenhum site proprio
+    [ "$sites" = ":80 {" ]
+}
+
+bloco_caddy() {
+    printf '# DG Claw: gerado pelo install.sh. Rodar o instalador de novo reescreve este arquivo.\n'
+    printf '%s {\n\treverse_proxy 127.0.0.1:8300\n}\n' "$1"
+}
+
+# escrever_site_caddy <dominio>: grava o site do DG Claw no Caddyfile proprio (quando e dele ou
+# padrao) ou em conf.d/dgclaw.caddy (quando o Caddyfile tem sites de outros). Nao valida nem recarrega.
+escrever_site_caddy() {
+    local dominio="$1" cf="$R/etc/caddy/Caddyfile" confd="$R/etc/caddy/conf.d/dgclaw.caddy"
+    if [ ! -f "$cf" ] || grep -q '^# DG Claw' "$cf" || caddyfile_e_padrao "$cf"; then
+        bloco_caddy "$dominio" | escrever_arquivo "$cf" 644
+    else
+        # Ja existe um Caddyfile com sites de verdade: nao se sobrescreve o que e dos outros.
+        if ! grep -Eq '^[[:space:]]*import[[:space:]]+.*conf\.d/\*' "$cf"; then
+            falha "o Caddyfile em ${cf#"$R"} ja tem outros sites e nao importa a pasta conf.d, entao nao tenho onde colocar o do DG Claw sem mexer no seu." \
+                "acrescente a linha 'import conf.d/*' no topo do arquivo (fora de qualquer bloco) e rode ./install.sh de novo. Ele vai criar ${confd#"$R"} com o site do DG Claw."
+        fi
+        bloco_caddy "$dominio" | escrever_arquivo "$confd" 644
+        info "o Caddyfile existente foi preservado; o site do DG Claw ficou em ${confd#"$R"}"
+    fi
+}
+
 # --- inotify ---------------------------------------------------------------------
 # Os containers dos agentes sao criados pelo root (podman rootful, --uidmap
 # 0:<uid_base>:65536) e os ucounts do kernel sao hierarquicos por user namespace: as

@@ -52,6 +52,7 @@ Todas rodam no terminal do servidor, pelo comando `dgclaw`.
 | `dgclaw imagem construir` | para reconstruir a imagem (por exemplo, depois de uma atualização) |
 | `dgclaw senha` | quando o dono quer trocar a senha do painel (ele digita no terminal, nunca no chat) |
 | `dgclaw primeiro-acesso` | quando o dono esqueceu a senha ou o link de primeiro acesso expirou: gera um link novo de uso único |
+| `dgclaw dominio` e `dgclaw dominio trocar <nome>` | quando o dono quer um endereço próprio para o painel (explica o DNS e configura; segue a skill `trocar-dominio`) |
 
 Antes de remover um agente, o Admin confirma com o dono e diz o que acontece com a casa dele.
 

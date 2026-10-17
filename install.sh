@@ -394,33 +394,6 @@ instalar_pacotes() {
 }
 
 # --- 3. dominio -----------------------------------------------------------------
-ip_publico() {
-    local url ip
-    for url in https://api.ipify.org https://ifconfig.me; do
-        # Se o primeiro servico falhar, o segundo e a reserva: por isso o erro aqui nao para nada.
-        ip="$(curl --proto '=https' --tlsv1.2 -fsS --max-time 10 "$url" 2>/dev/null)" || continue
-        if [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-            printf '%s' "$ip"
-            return 0
-        fi
-    done
-    return 1
-}
-
-# dns_publico_aponta <host> <ip>: 1.1.1.1 E 8.8.8.8 precisam devolver o IP.
-# Nunca a resolucao local: na Hostinger o /etc/hosts aponta o nome da maquina para 127.0.1.1.
-dns_publico_aponta() {
-    local host="$1" ip="$2" servidor resp
-    for servidor in 1.1.1.1 8.8.8.8; do
-        # Sem resposta (timeout, sem internet para o DNS) significa "nao aponta": cai no sslip.io.
-        resp="$(dig +short +time=3 +tries=1 "@$servidor" "$host" A 2>/dev/null)" || resp=""
-        # Here-string, sem pipe: com pipefail, `printf | grep -q` pode devolver 141 (SIGPIPE)
-        # mesmo achando o IP, e isso viraria um falso "o dominio nao aponta para ca".
-        if ! grep -qFx -- "$ip" <<<"$resp"; then return 1; fi
-    done
-    return 0
-}
-
 escolher_dominio() {
     passo "Escolhendo o endereco do painel"
     local atual ip nome
@@ -512,32 +485,10 @@ instalar_codigo() {
 }
 
 # --- 5. caddy -------------------------------------------------------------------
-caddyfile_e_padrao() {
-    local cf="$1" sites
-    grep -q 'root \* /usr/share/caddy' "$cf" || return 1
-    sites="$(grep -E '^[^[:space:]#}].*\{[[:space:]]*$' "$cf" || true)" # sem blocos = nenhum site proprio
-    [ "$sites" = ":80 {" ]
-}
-
-bloco_caddy() {
-    printf '# DG Claw: gerado pelo install.sh. Rodar o instalador de novo reescreve este arquivo.\n'
-    printf '%s {\n\treverse_proxy 127.0.0.1:8300\n}\n' "$DOMINIO"
-}
-
 configurar_caddy() {
     passo "Configurando o Caddy (HTTPS automatico para $DOMINIO)"
-    local cf="$R/etc/caddy/Caddyfile" confd="$R/etc/caddy/conf.d/dgclaw.caddy"
-    if [ ! -f "$cf" ] || grep -q '^# DG Claw' "$cf" || caddyfile_e_padrao "$cf"; then
-        bloco_caddy | escrever_arquivo "$cf" 644
-    else
-        # Ja existe um Caddyfile com sites de verdade: nao se sobrescreve o que e dos outros.
-        if ! grep -Eq '^[[:space:]]*import[[:space:]]+.*conf\.d/\*' "$cf"; then
-            falha "o Caddyfile em ${cf#"$R"} ja tem outros sites e nao importa a pasta conf.d, entao nao tenho onde colocar o do DG Claw sem mexer no seu." \
-                "acrescente a linha 'import conf.d/*' no topo do arquivo (fora de qualquer bloco) e rode ./install.sh de novo. Ele vai criar ${confd#"$R"} com o site do DG Claw."
-        fi
-        bloco_caddy | escrever_arquivo "$confd" 644
-        info "o Caddyfile existente foi preservado; o site do DG Claw ficou em ${confd#"$R"}"
-    fi
+    local cf="$R/etc/caddy/Caddyfile"
+    escrever_site_caddy "$DOMINIO"
     executar_log caddy validate --config "$cf" --adapter caddyfile
     if systemctl is-active --quiet caddy; then
         executar systemctl reload caddy
@@ -738,13 +689,16 @@ configurar_admin() {
             aviso "templates/admin/$arq ainda nao existe neste repositorio; o Admin vai subir sem esse arquivo de identidade. Rode ./install.sh de novo quando ele chegar."
         fi
     done
-    if fonte_tem skills/criar-agente; then
-        criar_pasta 755 "$DG_ADMIN/.claude"
-        criar_pasta 755 "$DG_ADMIN/.claude/skills"
-        executar rsync -a --delete "$SCRIPT_DIR/skills/criar-agente/" "$DG_ADMIN/.claude/skills/criar-agente/"
-    else
-        aviso "skills/criar-agente ainda nao existe neste repositorio; o Admin nao sabe criar agentes sozinho ate ela chegar."
-    fi
+    local skill
+    for skill in criar-agente trocar-dominio; do
+        if fonte_tem "skills/$skill"; then
+            criar_pasta 755 "$DG_ADMIN/.claude"
+            criar_pasta 755 "$DG_ADMIN/.claude/skills"
+            executar rsync -a --delete "$SCRIPT_DIR/skills/$skill/" "$DG_ADMIN/.claude/skills/$skill/"
+        else
+            aviso "skills/$skill ainda nao existe neste repositorio; o Admin nao tera essa habilidade ate ela chegar."
+        fi
+    done
 
     if [ "$PROVEDOR" = codex ]; then
         provider_runner="codex-cli"
