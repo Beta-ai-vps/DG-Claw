@@ -3477,8 +3477,11 @@ btnEnviar.onclick = () => {
 };
 // Enter manda (é a tecla "enviar" do teclado do iPhone); Shift+Enter, no
 // computador, quebra a linha. Durante a composição de acento não manda.
+// No Android com tela de toque o Enter do teclado quebra a linha; só o botão ➤ envia.
+const ENTER_QUEBRA_LINHA = /Android/i.test(navigator.userAgent) && matchMedia('(pointer: coarse)').matches;
+if (ENTER_QUEBRA_LINHA) entrada.enterKeyHint = 'enter';
 entrada.addEventListener('keydown', ev => {
-  if (ev.key !== 'Enter' || ev.shiftKey || ev.isComposing) return;
+  if (ev.key !== 'Enter' || ev.shiftKey || ev.isComposing || ENTER_QUEBRA_LINHA) return;
   ev.preventDefault(); destravarAudio(); enviarDoCampo();
 });
 
