@@ -48,7 +48,8 @@ montagens controladas e regras de rede. Os testes de isolamento conferem esses l
 
 O [instalador](../INSTALAR.md) confere os requisitos, instala dependências, configura o HTTPS e o
 firewall e liga o Web e o Admin. A senha do painel é guardada como hash. Ao terminar, a saída
-mostra endereço e credenciais para a pessoa continuar no navegador.
+mostra o endereço, o usuário e um link de primeiro acesso (uso único, 30 minutos) para a pessoa cadastrar
+a senha e continuar no navegador. Só o hash do código fica em disco.
 
 A imagem dos agentes fica para a primeira criação. A opção `--com-imagem` permite construí-la
 antes, em segundo plano. Áudio e canais não são requisitos para entrar no Admin.

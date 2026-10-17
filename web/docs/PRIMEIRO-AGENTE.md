@@ -6,9 +6,11 @@ trabalho continuam separados em containers.
 
 ## O que a pessoa vê e decide
 
-1. O instalador entrega o endereço direto `/a/admin`, usuário e senha escolhida. Na reinstalação sem
-   senha nova, informa que a anterior foi mantida. A senha aparece na entrega final solicitada pelo
-   dono; não é gravada pelo instalador nem passada em argumentos. Não publique capturas desse trecho.
+1. O instalador entrega o endereço do painel, o usuário e um link de primeiro acesso (`/primeiro-acesso#<código>`,
+   uso único, válido por 30 minutos). A pessoa abre o link, cadastra a senha no navegador e já entra em
+   `/a/admin`. A senha nunca aparece no terminal. Na reinstalação com senha existente, o instalador
+   informa que a atual foi mantida. Um link novo sai com `sudo dgclaw primeiro-acesso`. Não publique
+   capturas do link de primeiro acesso antes de ele ser usado.
 2. No Admin, o botão **Quero criar meu primeiro agente** envia essa frase à conversa. Depois vem
    a pergunta sobre o nome. **Continuar** manda o nome pela conversa, sem criar ainda.
 3. O visual pede função, tom e foto opcional. **Criar meu agente** confirma essas escolhas e envia

@@ -4,7 +4,7 @@
 Registrar hash, máquina, horário, navegador e resultado de cada linha. Não executar na VPS principal.
 
 - [ ] Começar com VPS Ubuntu limpa, Claude Code instalado e login de assinatura feito pelo dono.
-- [ ] Executar os três comandos do COMO-INSTALAR. Conferir link `/a/admin`, usuário e senha na saída.
+- [ ] Executar os três comandos do COMO-INSTALAR. Conferir endereço do painel, usuário e link de primeiro acesso na saída (sem senha). Abrir o link, cadastrar a senha e cair no Admin; o mesmo link não pode abrir de novo.
 - [ ] Abrir o HTTPS externo, conferir certificado e formulário de login, entrar com as credenciais.
 - [ ] Ver Admin no menu desde o primeiro acesso e a pergunta sobre o nome. Enviar nome pela conversa.
 - [ ] Preencher função, tom e foto. Abrir Tutorial e cada `?`. Conferir 390 px sem corte horizontal.

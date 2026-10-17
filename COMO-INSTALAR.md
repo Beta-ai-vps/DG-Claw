@@ -15,11 +15,18 @@ cd DG-Claw
 sudo ./install.sh --usuario admin
 ```
 
-Escolha a senha do painel quando o instalador pedir, com pelo menos 12 caracteres. Espere o final.
-Ele mostra o **link do painel**, **usuário**, **senha** e a frase **“Daqui pra frente é pelo painel”**.
-Guarde o acesso. A senha serve para entrar no DG Claw, não é a senha da sua conta Claude.
+O instalador não pede senha. Espere o final: ele mostra o **link do painel**, o **usuário**, um
+**link de primeiro acesso** e a frase **“Daqui pra frente é pelo painel”**. A senha nunca aparece no terminal.
 
-Abra o link no navegador. Entre e você estará no card **Admin**:
+Abra o **link de primeiro acesso** no navegador. Ele vale por 30 minutos e funciona uma única vez. Nele
+você cadastra a sua senha (pelo menos 12 caracteres) e já entra no chat do **Admin**. Essa senha serve
+para entrar no DG Claw, não é a senha da sua conta Claude. Se o link expirar, gere outro com
+`sudo dgclaw primeiro-acesso`.
+
+Se estiver instalando pelo Claude Code ou pelo Codex, ele roda `sudo ./install.sh --usuario admin`
+sem senha nenhuma e mostra os dois links no fim. Ele não pergunta a senha no chat.
+
+Já no card **Admin**:
 
 1. Toque em **Quero criar meu primeiro agente** e diga o nome dele.
 2. Preencha a função e o tom da conversa. Se quiser, suba uma foto ou gere um avatar ilustrado.
@@ -33,6 +40,8 @@ O botão **Tutorial** e os `?` explicam cada parte. No iPhone com **Reduzir Movi
 é curta e mantém o cartão de boas-vindas. Se uma etapa falhar, o Admin continua na mesma conversa
 para explicar e resolver. Não repita a instalação nem crie outro agente para contornar a falha.
 
-Repetir o instalador sem informar uma senha nova mantém a anterior. Nesse caso, ele informa que a
-senha foi mantida, porque só o hash fica guardado. Os detalhes da instalação estão em [INSTALAR.md](INSTALAR.md).
+Repetir o instalador em uma máquina que já tem senha mantém a senha atual, porque só o hash fica
+guardado. Para trocar a senha, rode `sudo dgclaw senha`. Para receber um link novo de primeiro acesso,
+rode `sudo dgclaw primeiro-acesso` (ou `sudo ./install.sh --novo-primeiro-acesso`; a senha antiga vale até o
+link ser usado). Os detalhes da instalação estão em [INSTALAR.md](INSTALAR.md).
 O contrato do fluxo e a origem dos estados estão em `web/docs/PRIMEIRO-AGENTE.md`.
