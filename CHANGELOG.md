@@ -9,6 +9,11 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ### Adicionado
 
+- Modo escondido (botão 👁 no cabeçalho da conversa): troca por asteriscos nomes, empresas, valores,
+  e-mails, telefones, documentos e chaves de todas as mensagens da tela, para o dono mostrar a conversa numa
+  aula sem expor cliente. Um filtro automático age na hora e um modelo (Claude Haiku com `ANTHROPIC_API_KEY`, ou
+  `gpt-4.1-mini` com `OPENAI_API_KEY`) aponta o resto pela rota `POST /api/v1/sigilo`. Mensagem ainda não
+  analisada aparece como "escondendo…", nunca crua. Guia em `docs/MODO-ESCONDIDO.md`.
 - A aba Sessões do painel agora funciona sozinha em cada agente (modo local): cada card é uma sessão
   paralela do runner do próprio agente. Dá para ver o que cada uma faz, ler a conversa, aprovar ou negar
   pedidos de permissão (só com login; chave de API não decide), mandar recado, anexar arquivo, arquivar,

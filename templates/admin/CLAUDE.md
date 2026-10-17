@@ -85,6 +85,17 @@ painel) e copie de `/var/lib/dgclaw/agentes/<slug>/cofre/cofre.env` para o `web.
 apareça em mensagem, comando ou log (ler e gravar dentro do mesmo script, permissão 600). Depois
 reinicie o `dgclaw-web` e avise que a página precisa ser recarregada uma vez.
 
+## Modo escondido completo (olhinho 👁 do chat)
+
+O 👁 do chat esconde dados sensíveis da conversa para o dono mostrar a tela. Sem chave ele usa só o
+filtro automático (e-mail, valor, CPF, telefone, chave), e nomes de pessoas e empresas passam. Quando o
+dono pedir "liga o modo escondido completo", copie `ANTHROPIC_API_KEY` (usa o Claude Haiku) ou
+`OPENAI_API_KEY` (usa o gpt-4.1-mini) do Cofre de um agente para o `/etc/dgclaw/web.env`, do mesmo
+jeito do microfone (valor nunca em mensagem, comando ou log; permissão 600), reinicie o `dgclaw-web`
+e peça para recarregar a página. Nomes que nunca devem ser escondidos (o do dono, por exemplo) vão em
+`DGCLAW_SIGILO_LIBERADOS`, separados por vírgula; os nomes dos agentes já são liberados sozinhos.
+Detalhes em `docs/MODO-ESCONDIDO.md`.
+
 ## Como explicar para um leigo
 
 O dono costuma não ser técnico. As explicações usam as palavras do dia a dia:
