@@ -19,10 +19,15 @@
 // fora dela não é "escondido": é inexistente para este módulo, e um pedido que
 // aponte para fora volta como erro, não como lista vazia.
 //
-// A PASTA NÃO É CRIADA POR AQUI. Se `arquivos/` não existe, `listar('')` devolve
-// lista vazia com o motivo escrito. Criar a pasta sozinho faria o painel mentir
-// duas vezes: diria que o agente tem um lugar de trabalho que ele nunca usou, e
-// esconderia do dono o fato de que o agente ainda não guardou nada.
+// A PASTA NÃO É CRIADA POR AQUI, COM UMA ÚNICA EXCEÇÃO. Se `arquivos/` não
+// existe, `listar('')` devolve lista vazia com o motivo escrito e não cria nada.
+// Criar a pasta só por olhar faria o painel mentir duas vezes: diria que o agente
+// tem um lugar de trabalho que ele nunca usou, e esconderia do dono o fato de que
+// o agente ainda não guardou nada.
+// A exceção é `subir` na RAIZ: aí o dono está de fato pondo um arquivo lá, e
+// recusar com "não achei a pasta" deixava o agente novo sem jeito de receber o
+// primeiro arquivo. Só a raiz nasce assim (subpasta inexistente continua 404), e
+// ela nasce com o dono do agentDir, para o agente conseguir mexer no que recebeu.
 //
 // AS TRÊS CAMADAS DE CONFERÊNCIA, em toda função sem exceção:
 //   1. o caminho pedido é relativo, sem `..`, sem segmento que comece com ponto;
@@ -174,8 +179,8 @@ function buildArquivos(config) {
           pastas: [],
           arquivos: [],
           motivo:
-            'O agente ainda não guardou nada. A pasta de arquivos dele nasce sozinha ' +
-            'no primeiro trabalho que ele salvar, e a partir daí o que estiver lá aparece aqui.',
+            'O agente ainda não guardou nada aqui. Você pode subir um arquivo mesmo assim: ' +
+            'a pasta é criada no primeiro envio.',
         };
       }
       return { erro: `Não achei a pasta "${r.rel}". Ela pode ter sido renomeada ou apagada.`, status: 404 };
@@ -366,6 +371,33 @@ function buildArquivos(config) {
   }
 
   /**
+   * Se o painel roda como root e o dono do agentDir é outro usuário, o que o
+   * painel cria passa para esse dono; senão o agente não conseguiria mexer.
+   * Sem root não há o que fazer (já nasce com o usuário do processo).
+   */
+  function darAoDono(caminho) {
+    if (typeof process.getuid !== 'function' || process.getuid() !== 0) return;
+    const dono = fs.statSync(config.agentDir);
+    const st = fs.lstatSync(caminho);
+    if (st.uid !== dono.uid || st.gid !== dono.gid) fs.chownSync(caminho, dono.uid, dono.gid);
+  }
+
+  /** Cria só a raiz `arquivos/` (o agentDir tem que existir). Ver o topo do arquivo. */
+  function criarRaiz() {
+    try {
+      fs.mkdirSync(RAIZ, { mode: 0o755 });
+      darAoDono(RAIZ);
+    } catch (err) {
+      if (err && err.code === 'EEXIST') return { ok: true };
+      if (err && err.code === 'ENOENT') {
+        return { erro: 'A pasta do agente não existe no servidor, então não há onde criar a pasta de arquivos.', status: 404 };
+      }
+      return { erro: `Não consegui criar a pasta de arquivos do agente: ${err.message}`, status: 500 };
+    }
+    return { ok: true };
+  }
+
+  /**
    * Grava um arquivo NOVO dentro de uma pasta.
    *
    * NÃO SOBRESCREVE. Se já existe um arquivo com aquele nome, a resposta é um
@@ -388,7 +420,11 @@ function buildArquivos(config) {
     const r = resolver(rel);
     if (r.erro) return r;
     if (!existe(r.caminho)) {
-      return { erro: `Não achei a pasta "${r.rel || 'arquivos'}" para guardar o arquivo.`, status: 404 };
+      if (r.rel) {
+        return { erro: `Não achei a pasta "${r.rel}" para guardar o arquivo.`, status: 404 };
+      }
+      const criada = criarRaiz();
+      if (criada.erro) return criada;
     }
     let stPasta;
     try { stPasta = fs.statSync(r.caminho); } catch (err) {
@@ -396,6 +432,19 @@ function buildArquivos(config) {
     }
     if (!stPasta.isDirectory()) {
       return { erro: `"${r.rel}" não é uma pasta, então não dá para guardar arquivo dentro dele.`, status: 400 };
+    }
+
+    // Terceira camada, de novo: o `resolver` só olha o que já existia. Vale
+    // também para a raiz recém-criada, que alguém pode ter trocado por um atalho.
+    try {
+      if (!dentroDe(fs.realpathSync(config.agentDir), fs.realpathSync(r.caminho))) {
+        return { erro: 'Pedido inválido: a pasta de destino aponta para fora da pasta do agente.', status: 400 };
+      }
+      if (!r.rel && fs.lstatSync(RAIZ).isSymbolicLink()) {
+        return { erro: 'Pedido inválido: a pasta de arquivos do agente é um atalho, e esta aba não grava através de atalho.', status: 400 };
+      }
+    } catch (err) {
+      return { erro: `Não consegui conferir a pasta de destino: ${err.message}`, status: 500 };
     }
 
     const alvo = path.join(r.caminho, nome);
@@ -418,6 +467,7 @@ function buildArquivos(config) {
       // recusa de cima, agora garantida pelo sistema de arquivos e não por uma
       // conferência que aconteceu um instante antes.
       fs.writeFileSync(alvo, buffer, { flag: 'wx' });
+      darAoDono(alvo);
     } catch (err) {
       if (err && err.code === 'EEXIST') {
         return { erro: `Já existe um arquivo chamado "${nome}" nesta pasta, e eu não escrevo por cima.`, status: 409 };

@@ -23,6 +23,7 @@ const { criarCofreAgente } = require('./lib/cofre-agente');
 const { criarCofreRotas } = require('./lib/cofre-rotas');
 const { criarAlertas } = require('./lib/alertas');
 const { criarVoz } = require('./lib/voz');
+const { criarSigilo } = require('./lib/sigilo');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
 const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
@@ -78,6 +79,7 @@ function criarServidor(opcoes) {
   const login = criarLogin({ runner, conversa, log, agora: opcoes.agora, oiPrazoMs: opcoes.loginOiPrazoMs, oiPassoMs: opcoes.loginOiPassoMs });
   const cofreAgente = criarCofreAgente({ config, log, reiniciar: opcoes.reiniciarCofre });
   const voz = opcoes.voz || criarVoz({ env: config.env, log });
+  const sigilo = opcoes.sigilo || criarSigilo({ env: config.env, registro, dataDir: config.dataDir, log, timeoutMs: opcoes.timeoutSigiloMs });
   const cofreRotas = criarCofreRotas({ config, runner, cofre: cofreAgente, voz, log });
   const proxy = criarProxy({ config, registro, log, cofreRotas });
   const caixa = criarCaixaAgente({ config, registro, log, porta: () => servidor.address().port, agora: opcoes.agora });
@@ -294,7 +296,7 @@ function criarServidor(opcoes) {
     if (p === '/api/v1/agents' && m === 'GET') {
       if (falhaDoRegistro(req, res, true)) return undefined;
       const lista = await Promise.all(registro.estado().agentes.map(agentePublico));
-      return H.enviaJson(res, 200, { ok: true, agentes: lista, voz: lista.some((a) => a.voz), microfone: voz.microfone, usuario: sessao.usuario });
+      return H.enviaJson(res, 200, { ok: true, agentes: lista, voz: lista.some((a) => a.voz), microfone: voz.microfone, limite_upload_bytes: config.maxUploadBytes, usuario: sessao.usuario });
     }
 
     if (p === '/api/v1/compartilhados/docs.md' && m === 'GET') {
@@ -414,6 +416,20 @@ function criarServidor(opcoes) {
 
     mm = /^\/api\/v1\/media\/([0-9a-f]{16})(?:\/(thumb))?$/.exec(p);
     if (mm && (m === 'GET' || m === 'HEAD')) return midia.servir(req, res, mm[1], mm[2] ? 'thumb' : 'arquivo', url.searchParams.get('baixar') === '1');
+
+    if (p === '/api/v1/sigilo/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'SIGILO.md'), 'utf8'));
+    }
+    if (p === '/api/v1/sigilo/estado' && m === 'GET') return H.enviaJson(res, 200, Object.assign({ ok: true }, sigilo.estado()));
+    if (p === '/api/v1/sigilo') {
+      if (m !== 'POST') return H.erroJson(res, 405, 'Use POST com {"textos": [...]}. O estado do modo escondido está em GET /api/v1/sigilo/estado.');
+      let corpo;
+      try { corpo = await H.lerJson(req, 4 * 1024 * 1024); } catch (e) { return H.erroJson(res, e.status || 400, e.message); }
+      const v = sigilo.validaEntrada(corpo);
+      if (v.erro) return H.erroJson(res, 400, v.erro);
+      return H.enviaJson(res, 200, Object.assign({ ok: true }, await sigilo.analisar(v.textos)));
+    }
 
     if (p === '/api/v1/transcribe' && m === 'POST') return transcrever(req, res);
     if (p === '/api/v1/tts' && m === 'POST') return falar(req, res);
