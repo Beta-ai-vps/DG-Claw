@@ -76,6 +76,14 @@ Agentes
       para /var/lib/dgclaw/aposentados/. Pede confirmacao quando ha terminal.
       Exemplo:  dgclaw agente remover ana --sim
 
+Dominio do painel
+  dgclaw dominio [mostrar]               mostra o dominio atual do painel e o IP publico da VPS
+  dgclaw dominio trocar <nome> [--sem-conferir-dns]
+      Passa o painel para um dominio proprio. Antes, o DNS do nome precisa apontar para o IP da VPS
+      (registro tipo A); o comando confere e, se nao apontar, explica o que falta e nao muda nada.
+      Depois reescreve o Caddy, recarrega, grava o dominio e espera o HTTPS (o certificado sai sozinho).
+      Exemplo:  dgclaw dominio trocar painel.minhaempresa.com.br
+
 Imagem dos agentes
   dgclaw imagem status [--exigir-pronta] diz se a imagem esta pronta, construindo ou falhou
   dgclaw imagem construir [--agora]      constroi a imagem (em segundo plano, ou aqui com --agora)
@@ -1431,6 +1439,111 @@ senha_main() {
     esac
 }
 
+# --- dominio ------------------------------------------------------------------------------------
+
+dominio_mostrar() {
+    carregar_env_dgclaw
+    local ip=""
+    ip="$(ip_publico)" || ip=""
+    printf 'Dominio atual do painel: %s\n' "${DGCLAW_DOMINIO:-(nao definido em $DG_ETC/dgclaw.env)}"
+    if [ -n "${DGCLAW_DOMINIO:-}" ]; then printf 'Endereco do painel:      https://%s/\n' "$DGCLAW_DOMINIO"; fi
+    printf 'IP publico desta VPS:    %s\n' "${ip:-(nao consegui descobrir: api.ipify.org e ifconfig.me nao responderam)}"
+    printf 'Para usar um dominio proprio: crie um registro DNS tipo A apontando para esse IP e rode: sudo dgclaw dominio trocar <nome>\n'
+}
+
+# dominio_gravar_env <dominio>: troca (ou acrescenta) so a linha DGCLAW_DOMINIO do dgclaw.env.
+dominio_gravar_env() {
+    local env="$DG_ETC/dgclaw.env"
+    if [ ! -f "$env" ]; then printf 'DGCLAW_DOMINIO=%s\n' "$1" | escrever_arquivo "$env" 644; return 0; fi
+    NOVO_DOM="$1" awk '
+        BEGIN {linha = "DGCLAW_DOMINIO=" ENVIRON["NOVO_DOM"]}
+        /^DGCLAW_DOMINIO=/ {if (!feito) print linha; feito = 1; next}
+        {print}
+        END {if (!feito) print linha}' "$env" | escrever_arquivo "$env" 644
+}
+
+dominio_trocar() {
+    local novo="" conferir=1 a
+    for a in "$@"; do
+        case "$a" in
+            --sem-conferir-dns) conferir=0 ;;
+            -*) falha "a opcao '$a' nao existe em 'dominio trocar'." "use: dgclaw dominio trocar <nome> [--sem-conferir-dns]" ;;
+            *) [ -z "$novo" ] || falha "sobrou '$a' na linha: so cabe um nome (recebi '$novo' e '$a')." "use: dgclaw dominio trocar painel.minhaempresa.com.br"
+               novo="$a" ;;
+        esac
+    done
+    [ -n "$novo" ] || falha "faltou dizer o dominio novo." "use: dgclaw dominio trocar painel.minhaempresa.com.br"
+    [[ "$novo" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] \
+        || falha "o dominio '$novo' nao parece um endereco valido." "use so o nome, sem https:// e sem barra, por exemplo: painel.minhaempresa.com.br"
+    [[ "$novo" == *.* ]] || falha "o dominio '$novo' nao tem ponto, entao nao e um endereco da internet." "use o nome completo, por exemplo: painel.minhaempresa.com.br"
+    novo="$(printf '%s' "$novo" | tr '[:upper:]' '[:lower:]')"
+    exigir_ferramentas curl dig caddy
+
+    local ip="" cf="$R/etc/caddy/Caddyfile" confd="$R/etc/caddy/conf.d/dgclaw.caddy"
+    ip="$(ip_publico)" || ip=""
+    if [ -z "$ip" ]; then
+        [ "$conferir" = 0 ] || falha "nao consegui descobrir o IP publico desta VPS (api.ipify.org e ifconfig.me nao responderam)." \
+            "confira se a VPS tem internet e rode de novo. Para pular a conferencia do DNS por sua conta e risco: dgclaw dominio trocar $novo --sem-conferir-dns"
+        ip="(desconhecido)"
+    fi
+    passo "Conferindo se $novo aponta para esta VPS ($ip)"
+    if [ "$conferir" = 1 ]; then
+        if ! dns_publico_aponta "$novo" "$ip"; then
+            falha "o DNS publico (1.1.1.1 e 8.8.8.8) ainda nao aponta $novo para o IP desta VPS ($ip). Nada foi mudado." \
+                "no painel de DNS de onde o dominio foi comprado, crie um registro tipo A para $novo com o valor $ip (se tiver um registro AAAA antigo para esse nome, apague; na Cloudflare, deixe a nuvem cinza). A propagacao pode levar de alguns minutos a algumas horas. Confira com: dig +short A $novo @1.1.1.1 (tem que devolver $ip) e rode este comando de novo."
+        fi
+        ok "$novo aponta para $ip"
+    else
+        aviso "conferencia do DNS pulada (--sem-conferir-dns); se $novo nao apontar para $ip, o certificado HTTPS nao sai."
+    fi
+
+    passo "Reescrevendo o site do DG Claw no Caddy"
+    local bk_cf="" bk_confd="" tem_cf=0 tem_confd=0
+    if [ -f "$cf" ]; then tem_cf=1; bk_cf="$(cat "$cf")"; fi
+    if [ -f "$confd" ]; then tem_confd=1; bk_confd="$(cat "$confd")"; fi
+    escrever_site_caddy "$novo"
+    if [ "$ENSAIO" != 1 ] && ! caddy validate --config "$cf" --adapter caddyfile >"$TMP_CADDY_LOG" 2>&1; then
+        # Volta o que estava antes: o Caddy em producao nunca pode ficar com arquivo quebrado.
+        if [ "$tem_cf" = 1 ]; then printf '%s\n' "$bk_cf" >"$cf"; fi
+        if [ "$tem_confd" = 1 ]; then printf '%s\n' "$bk_confd" >"$confd"; else rm -f "$confd"; fi
+        falha "o Caddy recusou a configuracao nova (caddy validate falhou: $(tail -n 3 "$TMP_CADDY_LOG" | tr '\n' ' ')). Voltei o arquivo ao que era; nada mudou." \
+            "confira se o nome '$novo' esta certo e rode de novo; se persistir, veja: caddy validate --config $cf --adapter caddyfile"
+    fi
+    [ "$ENSAIO" = 1 ] && info "[ensaio] rodaria: caddy validate --config $cf --adapter caddyfile"
+    ok "configuracao do Caddy valida"
+    executar systemctl reload caddy
+    dominio_gravar_env "$novo"
+    ok "dominio gravado em $DG_ETC/dgclaw.env"
+
+    if [ "$ENSAIO" = 1 ]; then
+        info "[ensaio] esperaria https://$novo/ responder (ate 90s) e mostraria o link novo do painel"
+        return 0
+    fi
+    info "esperando o certificado HTTPS de $novo (ate 90s)..."
+    local inicio=$SECONDS pronto=0
+    while true; do
+        if curl -sS --max-time 8 -o /dev/null --resolve "$novo:443:127.0.0.1" "https://$novo/" 2>/dev/null; then pronto=1; break; fi
+        [ $((SECONDS - inicio)) -ge 90 ] && break
+        sleep 3
+    done
+    if [ "$pronto" != 1 ]; then
+        falha "https://$novo/ nao respondeu em 90s. O Caddy ja esta com o nome novo, mas o certificado ainda nao saiu." \
+            "confira se as portas 80 e 443 estao abertas no firewall do provedor (a Hostinger tem um firewall no painel dela) e se $novo aponta para $ip (na Cloudflare, nuvem cinza). Veja o motivo com: journalctl -u caddy -n 30. O Caddy tenta de novo sozinho; quando passar, o painel abre em https://$novo/. Para voltar ao endereco anterior: dgclaw dominio trocar <nome antigo>."
+    fi
+    ok "HTTPS respondendo em $novo"
+    printf '\nPronto. O painel agora abre em: https://%s/\n' "$novo"
+    printf 'O endereco antigo deixou de abrir o painel. A senha e os agentes continuam os mesmos; quem estava logado precisa entrar de novo no endereco novo.\n'
+    printf 'Se precisar de um link de primeiro acesso novo: sudo dgclaw primeiro-acesso\n'
+}
+
+dominio_main() {
+    case "${1:-}" in
+        ""|mostrar) dominio_mostrar ;;
+        trocar) shift; TMP_CADDY_LOG="$(mktemp)"; trap 'rm -f "$TMP_CADDY_LOG"' EXIT; dominio_trocar "$@" ;;
+        *) falha "o subcomando 'dominio $1' nao existe." "use: dgclaw dominio [mostrar] ou dgclaw dominio trocar <nome>" ;;
+    esac
+}
+
 # --- status ---------------------------------------------------------------------------------------
 
 S_FALHAS=0
@@ -1544,6 +1657,7 @@ main() {
         agente) agente_main "$@" ;;
         imagem) imagem_main "$@" ;;
         senha) senha_main "$@" ;;
+        dominio) dominio_main "$@" ;;
         primeiro-acesso) primeiro_acesso "$@" ;;
         status) status_geral "$@" ;;
         *) falha "o comando '$cmd' nao existe." "veja os comandos com: dgclaw --ajuda" ;;

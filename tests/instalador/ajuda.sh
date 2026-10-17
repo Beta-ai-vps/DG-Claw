@@ -39,7 +39,7 @@ novo_cenario() {
     cp "$REPO/install.sh" "$FALSO/install.sh"
     cp -r "$REPO/lib" "$FALSO/lib"
     mkdir -p "$FALSO/.claude-plugin" "$FALSO/bin" "$FALSO/web" "$FALSO/runner" "$FALSO/container" \
-        "$FALSO/templates/admin" "$FALSO/skills/criar-agente" "$FALSO/scripts/dgchat-mcp" \
+        "$FALSO/templates/admin" "$FALSO/skills/criar-agente" "$FALSO/skills/trocar-dominio" "$FALSO/scripts/dgchat-mcp" \
         "$FALSO/tests" "$FALSO/.git" "$FALSO/web/node_modules"
     echo '{"name":"dgclaw","version":"1.0.0-teste"}' >"$FALSO/.claude-plugin/plugin.json"
     printf '#!/bin/sh\necho dgclaw falso\n' >"$FALSO/bin/dgclaw"; chmod +x "$FALSO/bin/dgclaw"
@@ -50,6 +50,7 @@ novo_cenario() {
     echo '# Admin (Claude)' >"$FALSO/templates/admin/CLAUDE.md"
     echo '# Admin (Codex)' >"$FALSO/templates/admin/AGENTS.md"
     echo '# criar-agente' >"$FALSO/skills/criar-agente/SKILL.md"
+    echo '# trocar-dominio' >"$FALSO/skills/trocar-dominio/SKILL.md"
     echo '//' >"$FALSO/scripts/dgchat-mcp/server.mjs"
     echo x >"$FALSO/tests/nao-deve-ir.txt"
     echo x >"$FALSO/.git/nao-deve-ir"
