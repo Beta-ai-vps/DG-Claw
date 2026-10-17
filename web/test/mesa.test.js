@@ -568,3 +568,28 @@ test('pelo servidor de verdade: /mesa com e sem sessão, GET e POST da API com o
     assert.equal((await s.c.get('/api/v1/tarefas/docs.md')).status, 200);
   } finally { await s.fechar(); fs.rmSync(s.dir, { recursive: true, force: true }); }
 });
+
+test('pelo servidor de verdade: o agente usa a Mesa pela caixa e o pedido ao dono vira aviso no aparelho', async () => {
+  const s = await subirWeb({ agentes: [{ slug: 'luna', nome: 'Luna', runner: 'http://127.0.0.1:1', agente_id: 'l1' }] });
+  const avisos = [];
+  s.web.push.enviar = async (a) => { avisos.push(a); return { inscricoes: 0, ok: 0, removidas: 0, falhas: [] }; };
+  const cab = { 'X-DGClaw-Caixa': s.web.caixa.segredo, 'X-DGClaw-Agente': 'luna', 'Content-Type': 'application/json' };
+  const pedir = async (metodo, caminho, json) => {
+    const r = await fetch(`http://127.0.0.1:${s.porta}${caminho}`, { method: metodo, headers: cab, body: json === undefined ? undefined : JSON.stringify(json) });
+    return { status: r.status, json: await r.json() };
+  };
+  try {
+    assert.ok(s.web.caixa.rotaPermitida('/api/v1/tarefas/1'), 'a rota da Mesa está liberada para a caixa');
+    const criada = await pedir('POST', '/api/v1/tarefas', { titulo: 'Roteiro', origem: 'Dono, hoje: faz o roteiro' });
+    assert.equal(criada.status, 201, JSON.stringify(criada.json));
+    assert.equal(criada.json.tarefa.agente, 'luna');
+    const id = criada.json.tarefa.id;
+    const pedido = await pedir('PATCH', `/api/v1/tarefas/${id}`, { estado: 'esperando_dono', motivo: 'Qual das duas capas?' });
+    assert.equal(pedido.status, 200, JSON.stringify(pedido.json));
+    for (let i = 0; i < 20 && !avisos.length; i++) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(avisos.length, 1);
+    assert.equal(avisos[0].titulo, 'Luna precisa de você');
+    assert.equal(avisos[0].url, `/mesa#t${id}`);
+    assert.equal((await pedir('GET', '/api/v1/tarefas')).json.tarefas.length, 1);
+  } finally { await s.fechar(); fs.rmSync(s.dir, { recursive: true, force: true }); }
+});
