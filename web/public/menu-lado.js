@@ -161,6 +161,7 @@
     painel.innerHTML = links.map(l => `<a class="ml-tab" href="${esc(l.href)}">` +
       `<span class="ml-ico" aria-hidden="true">${l.ico}</span>${esc(l.nome)}</a>`).join('');
     painel.hidden = !links.length;
+    $('mlTabs').insertAdjacentHTML('beforeend', '<a class="ml-tab" href="/avisos"><span class="ml-ico" aria-hidden="true">▦</span>Quadro de avisos</a>');
 
     $('gmIrConversa').onclick = () => opcoes.fecha();
     $('mlInstalar').onclick = aoInstalar;
