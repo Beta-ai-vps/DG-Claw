@@ -15,6 +15,9 @@ Environment=RUNNER_PORT=4300
 Environment=RUNNER_BIND=0.0.0.0
 Environment=RUNNER_LOG=/home/agente/.dgclaw/logs/runner.log
 Environment=RUNNER_TOKEN_FILE=/run/dgclaw/segredos/runner.token
+# Quantas sessões paralelas (cards) podem existir ao mesmo tempo. Sessão que dorme não gasta memória, e o
+# teto de capacidade do runner já barra acordar mais do que a máquina aguenta; por isso o limite é folgado.
+Environment=RUNNER_MAX_SESSOES_EXTRAS=8
 Environment=CLAUDE_CONFIG_DIR=/home/agente/.claude
 Environment=CODEX_HOME=/home/agente/.codex
 # O runner junta esta frase ao aviso de "ainda não fez login" que o dono vê.
