@@ -336,6 +336,8 @@ const SUBTITULO_ABA = {
   sessoes: 'os cards do Bunker: o que cada um faz agora',
   como: 'as peças dele, com os números de agora',
   apps: 'o que ele já produziu, etapa por etapa',
+  skills: 'o que ele sabe fazer, e onde cada skill fica salva',
+  rotinas: 'o que ele faz sozinho, na hora marcada',
   arquivos: 'os arquivos que ele guarda, e os que você sobe',
   cofre: 'as chaves de serviço que ele pode usar',
   posts: 'o que ele publicou',
@@ -376,6 +378,10 @@ const EXPLICACAO_ABA = {
     + 'com os números de verdade deste agente ao lado.',
   apps: 'Os aplicativos que este agente opera sozinho, e o que ele já produziu em cada um, '
     + 'etapa por etapa.',
+  skills: 'As skills são roteiros que ensinam o agente a fazer uma tarefa do seu jeito. Cada uma é uma pasta com um '
+    + 'arquivo SKILL.md, e esta página lista todas e mostra onde cada uma fica salva.',
+  rotinas: 'As rotinas e lembretes que ele marcou a seu pedido, com a próxima hora e como foi a última vez. '
+    + 'A lista se atualiza sozinha enquanto a página está aberta.',
   arquivos: 'A pasta de trabalho do agente: o que ele guardou enquanto trabalhava, e onde você '
     + 'deixa um arquivo para ele usar.',
   cofre: 'As chaves de serviço que este agente pode usar (gerar imagem, transcrever áudio). '
@@ -532,6 +538,8 @@ async function loadPanel(tab, force) {
     case 'sessoes': await window.DGSessoes.carregar(); break;
     case 'como': await window.DGCerebro.carregarComoFunciona(); ligarLinksEntreAbas(); break;
     case 'apps': await window.DGApps.carregar(); break;
+    case 'skills': await window.DGSkills.carregar(); break;
+    case 'rotinas': await carregarRotinas(); break;
     case 'arquivos': await window.DGArquivos.carregar(); break;
     // A aba Socorro (js/socorro.js, de outra frente) se carrega sozinha no clique da
     // aba dela. Chamar daqui também carregaria duas vezes.
@@ -1351,8 +1359,8 @@ const RESULTADO_ROTINA = {
  * (os timers dgclaw-<slug>-self-*). Vazio é um CONVITE, não um "nada aqui": diz
  * como criar a primeira.
  */
-function renderSuasRotinas(r) {
-  const el = document.getElementById('home-rotinas');
+function renderSuasRotinas(r, elId = 'home-rotinas', comDica = false) {
+  const el = document.getElementById(elId);
   if (!el) return;
   if (!r || !r.ok) {
     const c = (r && r.corpo) || {};
@@ -1389,8 +1397,21 @@ function renderSuasRotinas(r) {
       <span class="rotina-nome"><span class="status-err">!</span> ${escapeHtml(i.nome)}</span></div>
       <div class="rotina-pe">${ricoLinha(i.motivo)}</div></div>`;
   }
+  // Na aba Rotinas ninguém edita aqui: mudar ou apagar é pedir ao agente, que mexe no agendador de verdade.
+  if (comDica && rotinas.length) {
+    html += '<div class="vazio-util" style="margin-top:6px">Para mudar ou apagar uma rotina, peça ao agente na conversa.</div>';
+  }
   el.innerHTML = html;
 }
+
+// Aba Rotinas: reaproveita o desenho do Status e recarrega a cada 15 s enquanto está aberta e visível,
+// para o que o agente acabou de criar aparecer quase na hora.
+async function carregarRotinas() {
+  renderSuasRotinas(await API.rotinasUsuario(), 'rotinas-lista', true);
+}
+setInterval(() => {
+  if (currentTab === 'rotinas' && !document.hidden) carregarRotinas();
+}, 15000);
 
 function renderEmotions(data) {
   const { emotions, mood, needs, recentEvents, lastUpdate, fileModified } = data;

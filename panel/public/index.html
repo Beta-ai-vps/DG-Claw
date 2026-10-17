@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{{BASE}}/css/apps.css">
   <link rel="stylesheet" href="{{BASE}}/css/arquivos.css">
   <link rel="stylesheet" href="{{BASE}}/css/cofre.css">
+  <link rel="stylesheet" href="{{BASE}}/css/skills.css">
   <link rel="stylesheet" href="{{BASE}}/css/socorro.css">
   <link rel="stylesheet" href="{{BASE}}/css/operacoes.css">
   <link rel="stylesheet" href="{{BASE}}/css/sessoes.css">
@@ -67,6 +68,8 @@
              boot. Fonte única: escrever aqui também criaria dois textos para a mesma
              aba, e um dia eles discordam. -->
         <button class="tab" data-tab="apps"><span class="ico">▨</span>Apps</button>
+        <button class="tab" data-tab="skills"><span class="ico">✦</span>Skills</button>
+        <button class="tab" data-tab="rotinas"><span class="ico">↻</span>Rotinas</button>
         <button class="tab" data-tab="arquivos"><span class="ico">▢</span>Pasta</button>
         <!-- A aba Socorro (outra frente) entra aqui, antes do Cofre. -->
         <button class="tab" data-tab="socorro"><span class="ico">✚</span>Socorro</button>
@@ -398,6 +401,19 @@
           <div id="apps-root">Carregando...</div>
         </div>
 
+        <!-- SKILLS: desenhada por js/skills.js a partir de /api/skills. -->
+        <div class="panel" id="panel-skills">
+          <div id="skills-root">Carregando...</div>
+        </div>
+
+        <!-- ROTINAS: a mesma lista do Status (renderSuasRotinas), em página própria, com recarga a cada 15 s. -->
+        <div class="panel" id="panel-rotinas">
+          <section class="cartao">
+            <div class="section-title">Suas rotinas</div>
+            <div id="rotinas-lista"><div class="vazio-util">Carregando...</div></div>
+          </section>
+        </div>
+
         <!-- PASTA -->
         <!-- Também desenhada inteira por js/arquivos.js. A raiz que esta aba
              enxerga é travada em <agentDir>/arquivos no servidor, e o porquê
@@ -522,6 +538,7 @@
   <script src="{{BASE}}/js/apps.js"></script>
   <script src="{{BASE}}/js/arquivos.js"></script>
   <script src="{{BASE}}/js/cofre.js"></script>
+  <script src="{{BASE}}/js/skills.js"></script>
   <script src="{{BASE}}/js/socorro.js"></script>
   <script src="{{BASE}}/js/sessoes.js"></script>
 </body>

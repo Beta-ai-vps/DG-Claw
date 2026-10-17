@@ -16,11 +16,13 @@
 
   /* chave = o que vai depois de #aba= (o painel abre a aba por ela) */
   const ABAS_PAINEL = [
-    ['status', '◉', 'Status'], ['memory', '▤', 'Memória'], ['operations', '⚙', 'Operações'],
-    ['costs', '◇', 'Custos'], ['como', '◎', 'Como funciona'], ['identity', '◈', 'Identidade'],
-    ['personality', '◐', 'Personalidade'], ['apps', '▨', 'Apps'], ['arquivos', '▢', 'Pasta'],
-    ['socorro', '✚', 'Socorro'], ['cofre', '⚿', 'Cofre'],
+    ['status', '◉', 'Status'], ['skills', '✦', 'Skills'], ['rotinas', '↻', 'Rotinas'],
+    ['cofre', '⚿', 'Cofre (chaves)'], ['arquivos', '▢', 'Pasta do agente'],
+    ['memory', '▤', 'Memória'], ['operations', '⚙', 'Operações'], ['costs', '◇', 'Custos'],
+    ['como', '◎', 'Como funciona'], ['identity', '◈', 'Identidade'], ['personality', '◐', 'Personalidade'],
+    ['apps', '▨', 'Apps'], ['socorro', '✚', 'Socorro'],
   ];
+
 
   /* A foto vem SEMPRE do próprio agente do item. Sem foto, círculo com a cor dele e a letra. */
   function fotoDe(a) {

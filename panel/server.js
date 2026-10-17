@@ -49,6 +49,7 @@ const { buildPulso } = require('./lib/pulso');
 const pulso = buildPulso(CONFIG, __dirname);
 // A agenda do agente vem do systemd, nao de lista escrita a mao. Ver lib/rotinas.js.
 const rotinas = require('./lib/rotinas');
+const skillsLib = require('./lib/skills');
 // A conversa do dono com o agente. Fonte unica = o transcript da sessao viva.
 const { buildConversa } = require('./lib/conversa');
 const conversa = buildConversa(CONFIG, __dirname);
@@ -984,6 +985,15 @@ router.get('/api/rotinas', async (req, res) => {
       rotinas: [], inconsistencias: [],
       erro: `nao consegui ler a agenda no systemd: ${e.message}`,
     });
+  }
+});
+
+// As skills do agente: pastas <dir>/<nome>/SKILL.md lidas do disco. Ver lib/skills.js.
+router.get('/api/skills', (req, res) => {
+  try {
+    res.json(skillsLib.listar(CONFIG.agentDir, process.env.DGCLAW_PANEL_SKILLS_DIR));
+  } catch (e) {
+    res.status(500).json({ error: `Não consegui listar as skills: ${e.message}`, howToFix: 'Confira se a pasta do agente existe e se o painel pode lê-la.', skills: [], pastas: [] });
   }
 });
 
