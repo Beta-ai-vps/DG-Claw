@@ -177,6 +177,20 @@ const btnFim = $('btnFim'), fimNovas = $('fimNovas');
 const API = '/api/v1/agents/' + encodeURIComponent(AGENTE.id);
 const AQUI = location.pathname + location.search;
 const EH_ADMIN = AGENTE.tipo === 'admin';
+/* A Mesa e os Lembretes levam o agente junto (?a=), para o menu deles ser o deste agente. */
+(function () {
+  try { localStorage.setItem('dgclaw:agente', AGENTE.id); } catch (_) { /* sem armazenamento: a casca usa o primeiro agente */ }
+  [['btnMesa', '/mesa'], ['btnLembretes', '/lembretes']].forEach(([id, href]) => {
+    const el = $(id);
+    if (el) el.href = window.DGMenuLado.comAgente(href, AGENTE.id);
+  });
+})();
+(function () {
+  const b = $('btnPainel');
+  if (!b || !AGENTE.tem_painel) return;
+  b.href = AGENTE.painel_url || ('/p/' + encodeURIComponent(AGENTE.id) + '/');
+  b.hidden = false;
+})();
 if (window.campoCofre) window.campoCofre.configurar({ agente: AGENTE.id, enviar: texto => new Promise((resolve, reject) => { enviarTexto(texto, null, { aoEntregar: (ok, motivo) => ok ? resolve() : reject(new Error(motivo || 'O agente não recebeu a mensagem.')) }); }) });
 if (window.DGOnboarding) window.DGOnboarding.iniciar({ agente: AGENTE, enviar: texto => new Promise((resolve, reject) => { enviarTexto(texto, null, { aoEntregar: (ok, motivo) => ok ? resolve() : reject(new Error(motivo || 'O Admin não recebeu a mensagem.')) }); }), refazer: () => render({ semRolar: true }) });
 if (window.DGBarra) window.DGBarra.liga(entrada, { url: API + '/comandos' });   // lista de comandos ao digitar /
@@ -3584,14 +3598,7 @@ function passosTutorial() {
   const abreM = () => abreMenu(true), fechaM = () => abreMenu(false);
   const nome = AGENTE.nome;
   const passos = [
-    { alvo: '#mlMoldura', antes: abreM, titulo: 'O menu do agente',
-      oque: 'A foto, o nome e as páginas de ' + nome + ', sempre no lado esquerdo. No computador ele fica aberto o tempo todo; no celular abre pelo botão ☰.',
-      como: 'O item Conversa (esta tela) fica no alto. Os outros itens levam às páginas do painel dele. O Tutorial, aqui em cima, repete esta visita.',
-      porque: 'Assim a conversa e o painel de cada agente ficam no mesmo lugar, sem link escondido.' },
-    ...(agentesMenu.length > 1 ? [{ alvo: '#mlTroca', antes: abreM, titulo: 'Trocar de agente',
-      oque: 'Um seletor com todos os agentes que trabalham para você, cada um com a sua foto. O Admin vem primeiro, com o selo "admin"; o agente em que você está aparece marcado com "aqui".',
-      como: 'Toque em "trocar de agente" e escolha um da lista: a conversa e o menu passam a ser dele. Cada agente tem a própria conversa e a própria memória.',
-      porque: 'Você escolhe com quem falar sem sair desta tela. O Admin cuida da instalação e dos ajustes; os outros fazem o trabalho do dia a dia.' }] : []),
+    ...window.DGMenuLado.passosMenu({ nome, abre: abreM, fecha: fechaM, comTroca: agentesMenu.length > 1, naConversa: true }),
     { alvo: '#chat', antes: fechaM, titulo: 'A conversa',
       oque: 'Aqui aparece tudo o que você e ' + nome + ' já escreveram, na ordem, como num aplicativo de mensagens.',
       como: 'As respostas chegam sozinhas, sem precisar atualizar a página. Role para cima para ver as mensagens mais antigas; a seta no canto leva de volta para a mais nova. Quando uma mensagem veio ou foi respondida pelo WhatsApp ou pelo Telegram, ela ganha um selinho com o nome do canal; passe o dedo ou o mouse nele para ver os detalhes.',
@@ -3656,6 +3663,20 @@ function passosTutorial() {
     oque: 'Um cartão que aparece no fim da conversa quando ' + nome + ' ainda não tem a sua conta do Claude ou do Codex conectada. O que você vê agora é só um exemplo.',
     como: 'Toque em Conectar, abra a página de login, entre com a sua conta e, no Claude, cole aqui o código que ela mostrar no fim. A tela confere sozinha e avisa quando terminar. Para abrir o cartão a qualquer hora, escreva /login no campo de mensagem e envie: nada vai para o agente.',
     porque: 'Sem conta conectada o agente não consegue responder. Assim você resolve aqui mesmo, sem abrir terminal.' });
+  if (!$('btnPainel').hidden) {
+    passos.push({ alvo: '#btnPainel', titulo: 'O botão Painel',
+      oque: 'Um atalho para o painel de ' + nome + ', com Status, Memória, Operações, Custos e as outras páginas.',
+      como: 'Toque nele e o painel abre na mesma janela. Para voltar, use o item Conversa do menu do painel ou o voltar do navegador.',
+      porque: 'Fica no topo para você passar da conversa ao painel com um toque, sem abrir o menu.' });
+  }
+  passos.push({ alvo: '#btnMesa', titulo: 'O botão Mesa',
+    oque: 'Um atalho para a Mesa de tarefas, onde ficam as tarefas de todos os agentes.',
+    como: 'Toque nele e a Mesa abre na mesma janela. Lá você acompanha o que está pendente e o que já foi feito.',
+    porque: 'Você confere o andamento do trabalho sem sair procurando no menu.' });
+  passos.push({ alvo: '#btnLembretes', titulo: 'O botão Lembretes',
+    oque: 'Um atalho para a tela de lembretes.',
+    como: 'Toque nele e a lista abre na mesma janela. Lá você cria, confirma e apaga lembretes.',
+    porque: 'Lembrete que insiste até você confirmar só ajuda se for fácil de achar, por isso fica no topo.' });
   if (window.DGSigilo) passos.push(window.DGSigilo.passoTour());
   passos.push(passoAlertas());
   if (window.DGFoco) passos.push(window.DGFoco.passoTutorial());
