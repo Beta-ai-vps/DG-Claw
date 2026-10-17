@@ -24,6 +24,7 @@ if (navigator.standalone === true ||
 <link rel="stylesheet" href="/chat.css">
 <link rel="stylesheet" href="/conversa.css">
 <link rel="stylesheet" href="/onboarding.css">
+<link rel="stylesheet" href="/menu-lado.css">
 </head>
 <body>
 
@@ -56,20 +57,27 @@ if (navigator.standalone === true ||
 </header>
 
 <div id="overlayMenu"></div>
-<aside id="menu" aria-label="Menu do DG Claw">
+<aside id="menu" aria-label="Menu do agente">
   <button class="fechar" id="btnFechaMenu" aria-label="Fechar o menu">✕</button>
-  <div class="gm-topo" data-tour="gm-marca"><span class="gm-emoji" aria-hidden="true">🦞</span><b>DG Claw</b><button type="button" class="gm-tut" id="gmTutorial" title="Visita guiada: o que é cada parte e por que está aqui">Tutorial</button></div>
-  <div class="gm-conversa" id="gmConversa" data-tour="gm-conversa">
-    <button type="button" class="gm-item ativo" id="gmIrConversa"><span class="gm-ic" aria-hidden="true">💬</span><span class="gm-tx"><b>Conversa</b><small id="gmConversaSub"></small></span></button>
+  <div class="ml-marca" data-tour="gm-marca">
+    <div class="ml-moldura" id="mlMoldura" aria-hidden="true"></div>
+    <div class="ml-nome" id="mlNome">DG Claw</div>
+    <div class="ml-sub" id="mlSub"></div>
+    <button type="button" class="gm-tut" id="gmTutorial" title="Visita guiada: o que é cada parte e por que está aqui">Tutorial</button>
+    <div class="ml-troca" id="mlTroca" data-tour="agentes" hidden>
+      <button type="button" id="mlTrocaBtn" aria-haspopup="true" aria-expanded="false"><span>trocar de agente</span><span class="ml-seta" aria-hidden="true">▾</span></button>
+      <div class="ml-lista" id="mlLista" role="menu"></div>
+    </div>
   </div>
-  <h2 id="menuAgentesTit">Agentes</h2>
-  <div class="agentes" id="listaAgentes" data-tour="agentes"></div>
-  <div class="gm-corpo" id="gmCorpo">
-    <section class="gm-sec" id="gmSecPainel" data-tour="gm-painel" aria-label="Painel do agente" hidden>
-      <h3 id="gmPainelTit">Painel</h3>
-      <a class="gm-item" id="gmPainel" href="#"><span class="gm-ic" aria-hidden="true">🦞</span><span class="gm-tx"><b id="gmPainelNome">Painel</b><small>status, memória e custos</small></span></a>
-    </section>
-  </div>
+  <nav class="ml-tabs" id="mlTabs" aria-label="Páginas do agente">
+    <div data-tour="gm-conversa"><button type="button" class="ml-tab ativo" id="gmIrConversa" aria-current="page"><span class="ml-ico" aria-hidden="true">◔</span>Conversa</button></div>
+    <div id="mlPainel" data-tour="gm-painel" hidden></div>
+  </nav>
+  <section class="ml-config" id="mlConfig" data-tour="gm-config" aria-label="Configurações">
+    <h3>Configurações</h3>
+    <button type="button" class="ml-tab" id="mlInstalar"><span class="ml-ico" aria-hidden="true">⤓</span><span class="ml-tx">Instalar o app<small id="mlInstalarSub"></small></span></button>
+    <p class="ml-ajuda" id="mlInstalarAjuda" role="status" hidden></p>
+  </section>
   <div class="pe">
     <div class="conta">
       <form method="post" action="/sair" id="formSair"><button type="submit" class="sair">Sair</button></form>
@@ -133,6 +141,7 @@ if (navigator.standalone === true ||
 <script src="/trilha-tela.js"></script>
 <script src="/rolagem.js"></script>
 <script src="/tour.js"></script>
+<script src="/menu-lado.js"></script>
 <script src="/onboarding.js"></script>
 <script src="/conversa.js"></script>
 <script>

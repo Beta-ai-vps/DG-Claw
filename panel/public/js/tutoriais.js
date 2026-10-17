@@ -47,7 +47,7 @@
       tela(
         'Aqui você fala com ele',
         'Escreva embaixo e ele responde aqui em cima, como em qualquer conversa. Se ele também tiver Telegram, é a MESMA conversa: o que você mandar por lá aparece aqui, na ordem, e o contrário também.',
-        'Uma conversa só, e não uma por lugar. Se fossem duas, ele lembraria de metade do que vocês combinaram, dependendo de onde você tivesse falado.',
+        'Uma conversa só, e não uma por lugar. Se fossem duas, ele lembraria de metade do que vocês combinaram, dependendo de onde você tivesse falado. Quando o painel é aberto pela plataforma, a conversa é a tela principal do agente (o chat): o botão Conversa leva para lá, e o painel guarda as demais páginas dele.',
       ),
       {
         chave: 'sinal',
@@ -352,6 +352,36 @@
         'As pessoas que mais conversam com ele no Instagram, e o resumo de quantas são.',
         'Serve para você ver com quem o agente está gastando o tempo dele. Às vezes é uma pessoa só, mandando mensagem o dia inteiro, e isso é uma informação de negócio, não de sistema.',
       ),
+    ],
+
+    skills: [
+      tela(
+        'O que ele sabe fazer',
+        'Cada cartão é uma skill: um roteiro que ensina o agente a fazer uma tarefa do seu jeito. Toque no cartão para ler a descrição inteira e ver a pasta onde ela fica salva. No topo está quantas existem e a pasta onde ficam.',
+        'Aqui você responde "onde fica salvo isso?". A skill é um arquivo de texto numa pasta, e não algo escondido dentro do agente: dá para ler, copiar e levar para outro agente.',
+      ),
+      {
+        chave: 'lista',
+        alvo: '#skills-root',
+        titulo: 'A lista, lida da pasta',
+        corpo: 'A lista é montada na hora, olhando as pastas do agente. Se uma pasta ainda não existe, a página avisa onde procurou. Skill com cabeçalho quebrado aparece com um aviso em vermelho em vez de sumir.',
+        porque: 'Nada é guardado em outro lugar, então o que está na tela é exatamente o que o agente enxerga. Se você apaga a pasta de uma skill, ela some daqui.',
+      },
+    ],
+
+    rotinas: [
+      tela(
+        'O que ele faz sozinho',
+        'As rotinas e lembretes que o agente marcou a seu pedido, cada uma com a hora em que roda, a próxima execução e se a última deu certo. A lista se atualiza sozinha a cada 15 segundos.',
+        'A recarga automática existe para você pedir uma rotina na conversa e vê-la aparecer aqui quase na hora, sem apertar nada. Para mudar ou apagar uma rotina, peça ao agente na conversa.',
+      ),
+      {
+        chave: 'lista',
+        alvo: '#rotinas-lista',
+        titulo: 'Uma rotina por cartão',
+        corpo: 'Cada cartão mostra o nome, quando roda, o recado que ele recebe ao disparar, quando rodou pela última vez e quando roda de novo. O sinal diz se a última execução deu certo, falhou ou pede atenção.',
+        porque: 'A lista vem do agendador da máquina, e não de um caderno do agente. Se aparece aqui, existe e vai rodar; se ele prometeu uma rotina e não marcou, o aviso aparece em vez de sumir calado.',
+      },
     ],
 
     reunioes: [
