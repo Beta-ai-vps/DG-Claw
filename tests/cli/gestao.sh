@@ -64,6 +64,28 @@ afirma "construir inicia a unidade em segundo plano" grep -q '^systemctl start -
 dgclaw imagem construir --agora >/dev/null 2>&1
 afirma "construir --agora: podman build sem o proxy do host" grep -q '^podman build --http-proxy=false ' "$STUB_LOG"
 
+echo "primeiro-acesso"
+printf 'DGCLAW_PANEL_USER=maria\nDGCLAW_PANEL_PASSWORD_HASH=\n' >"$ETC/web.env.pa"
+mv "$ETC/web.env" "$ETC/web.env.guardado" 2>/dev/null || true
+mv "$ETC/web.env.pa" "$ETC/web.env"
+dgclaw primeiro-acesso >"$TMP/pa1.out" 2>"$TMP/pa1.err"
+igual "primeiro-acesso sai com 0" "0" "$?"
+igual "stdout e so o link (uma linha)" "1" "$(wc -l <"$TMP/pa1.out")"
+afirma "o link tem o formato esperado" grep -Eq '^https://teste\.exemplo\.org/primeiro-acesso#[A-Za-z0-9_-]{43}$' "$TMP/pa1.out"
+afirma "stderr explica uso unico" grep -q "uso unico" "$TMP/pa1.err"
+afirma "arquivo em modo 600" test "$(stat -c %a "$ETC/primeiro-acesso.json")" = 600
+afirma "usuario no arquivo" jq -e '.usuario == "maria" and .usado_em == null' "$ETC/primeiro-acesso.json"
+igual "sha256 do link bate com o arquivo" "$(cut -d'#' -f2 "$TMP/pa1.out" | tr -d '\n' | sha256sum | cut -d' ' -f1)" "$(jq -r .token_sha256 "$ETC/primeiro-acesso.json")"
+h1="$(jq -r .token_sha256 "$ETC/primeiro-acesso.json")"
+dgclaw primeiro-acesso >"$TMP/pa2.out" 2>/dev/null
+nega "o segundo link invalida o primeiro (hash muda)" test "$h1" = "$(jq -r .token_sha256 "$ETC/primeiro-acesso.json")"
+nega "o link nao fica gravado em disco" grep -rqF -- "$(cut -d'#' -f2 "$TMP/pa2.out")" "$DGCLAW_RAIZ"
+dgclaw primeiro-acesso --ensaio >"$TMP/pa3.out" 2>&1
+afirma "ensaio nao imprime link" bash -c "! grep -q 'primeiro-acesso#' '$TMP/pa3.out'"
+rm -f "$ETC/web.env"
+nega "sem web.env recusa" dgclaw primeiro-acesso
+mv "$ETC/web.env.guardado" "$ETC/web.env" 2>/dev/null || true
+
 echo "senha trocar"
 printf "DGCLAW_PANEL_USER=dono\nDGCLAW_PANEL_PASSWORD_HASH='scrypt\$velho\$velho'\nOUTRA=1\n" >"$ETC/web.env"
 chmod 600 "$ETC/web.env"
@@ -71,6 +93,7 @@ export DGCLAW_SENHA_HASH_CMD="cat >/dev/null; echo 'scrypt\$novo\$novo'"
 printf '%s\n' "curta" | dgclaw senha trocar >/dev/null 2>&1
 igual "senha curta recusada" "1" "$(grep -c velho "$ETC/web.env")"
 printf '%s\n' "uma senha bem grande" | dgclaw senha trocar >"$TMP/o.txt" 2>&1
+nega "senha trocar apaga o primeiro-acesso.json" test -e "$ETC/primeiro-acesso.json"
 igual "senha trocada: linha do hash atualizada" "DGCLAW_PANEL_PASSWORD_HASH='scrypt\$novo\$novo'" "$(grep ^DGCLAW_PANEL_PASSWORD_HASH "$ETC/web.env")"
 igual "as outras linhas do web.env ficam" "2" "$(grep -c -E '^(DGCLAW_PANEL_USER=dono|OUTRA=1)$' "$ETC/web.env")"
 igual "web.env continua 600" "600" "$(stat -c %a "$ETC/web.env")"
