@@ -50,7 +50,8 @@ Todas rodam no terminal do servidor, pelo comando `dgclaw`.
 | `dgclaw agente remover <slug>` | quando o dono quer tirar um agente; a casa dele é guardada, não apagada |
 | `dgclaw imagem status` | para saber se a imagem usada pelos agentes já terminou de ser construída |
 | `dgclaw imagem construir` | para reconstruir a imagem (por exemplo, depois de uma atualização) |
-| `dgclaw senha trocar` | quando o dono esqueceu ou quer trocar a senha do painel |
+| `dgclaw senha` | quando o dono quer trocar a senha do painel (ele digita no terminal, nunca no chat) |
+| `dgclaw primeiro-acesso` | quando o dono esqueceu a senha ou o link de primeiro acesso expirou: gera um link novo de uso único |
 
 Antes de remover um agente, o Admin confirma com o dono e diz o que acontece com a casa dele.
 

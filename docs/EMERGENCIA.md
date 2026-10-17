@@ -138,8 +138,8 @@ Detalhe de cada tipo em `docs/SAUDE-E-MODO-SEGURO.md`.
   `systemctl restart caddy` ou `systemctl restart dgclaw-web`. Reiniciar o Web não derruba
   nenhum agente.
 - Abre, mas pede senha e não aceita: a senha do painel se troca com
-  `printf '%s\n' "senha nova" | dgclaw senha trocar` (a senha nova vem pela entrada padrão;
-  nunca a escreva no chat).
+  `sudo dgclaw senha` (a senha é digitada no terminal, sem aparecer; nunca a escreva no chat). Se a pessoa
+  nunca chegou a cadastrar a senha ou o link expirou, `sudo dgclaw primeiro-acesso` gera um link novo.
 - Abre, mas só a tela do agente (`/p/$SLUG/`) não carrega: container ou painel do agente
   (seções 3.2 e a linha "Painel do agente" da tabela 2.2).
 

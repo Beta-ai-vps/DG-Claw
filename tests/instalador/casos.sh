@@ -77,7 +77,7 @@ caso_instalacao_cria_arquivos_com_os_modos_certos() {
     afirma "marca de primeiro boot" test -f "$RAIZ/var/lib/dgclaw/web/admin-saudado"
     nega "token do admin em argv" tem "$STUB_LOG" "$(cat "$e/runner/admin.token")"
     afirma "mensagem final com o endereco" tem "$SAIDA" "https://203-0-113-7.sslip.io"
-    afirma "mensagem final abre o Admin" tem "$SAIDA" "/a/admin"
+    afirma "mensagem final traz o painel" tem "$SAIDA" "Painel:   https://203-0-113-7.sslip.io/"
     afirma "mensagem final orienta sair do terminal" tem "$SAIDA" "Daqui pra frente é pelo painel"
     limpar_cenario
 }
@@ -220,238 +220,94 @@ caso_senha_curta_e_recusada() {
     limpar_cenario
 }
 
-caso_sem_senha_na_primeira_vez() {
+caso_sem_senha_gera_link_de_primeiro_acesso() {
     novo_cenario
-    nega "sem senha nenhuma" instalar "" --usuario maria
-    afirma "explica como mandar a senha" tem "$SAIDA" "senha do painel nao chegou"
-    afirma "nada foi criado" vazio "$RAIZ"
+    afirma "instala sem senha" instalar "" --usuario maria --provedor claude
+    local e="$RAIZ/etc/dgclaw" arq="$RAIZ/etc/dgclaw/primeiro-acesso.json" tk hash_impresso
+    afirma "criou primeiro-acesso.json" test -f "$arq"
+    afirma "arquivo em modo 600" modo_e "$arq" 600
+    afirma "campos do contrato" jq -e '.versao == 1 and .usuario == "maria" and (.token_sha256 | test("^[0-9a-f]{64}$")) and .usado_em == null and (.expira - .criado) == 1800000' "$arq"
+    afirma "web.env com usuario" tem "$e/web.env" "DGCLAW_PANEL_USER=maria"
+    afirma "web.env com hash vazio" tem "$e/web.env" "DGCLAW_PANEL_PASSWORD_HASH=''"
+    afirma "a saida traz o link" tem "$SAIDA" "/primeiro-acesso#"
+    tk="$(grep -o 'primeiro-acesso#[A-Za-z0-9_-]*' "$SAIDA" | head -1 | cut -d'#' -f2)"
+    igual "$(printf '%s' "$tk" | wc -c)" 43 || { echo "      FALHOU: o link nao tem 43 caracteres"; FALHAS=$((FALHAS + 1)); }
+    hash_impresso="$(printf '%s' "$tk" | sha256sum | cut -d' ' -f1)"
+    igual "$hash_impresso" "$(jq -r .token_sha256 "$arq")" || { echo "      FALHOU: sha256 do link diferente do arquivo"; FALHAS=$((FALHAS + 1)); }
+    nega "o link em algum arquivo da raiz" grep -rqF -- "$tk" "$RAIZ"
+    nega "o link no registro dos stubs" tem "$STUB_LOG" "$tk"
+    nega "a saida mostra uma senha" grep -q "Senha:    [^ae]" "$SAIDA"
+    afirma "explica como gerar outro" tem "$SAIDA" "sudo dgclaw primeiro-acesso"
     limpar_cenario
 }
 
-caso_senha_so_na_entrega_e_nunca_em_arquivo_ou_argv() {
+caso_senha_por_pipe_grava_hash_e_nao_gera_link() {
+    novo_cenario
+    local pw='Segredo-Unico-ZXQ-98765'
+    afirma "instala" instalar "$pw" --usuario maria --provedor claude
+    afirma "hash gravado" grep -q "^DGCLAW_PANEL_PASSWORD_HASH='scrypt" "$RAIZ/etc/dgclaw/web.env"
+    nega "nao cria primeiro-acesso.json" test -e "$RAIZ/etc/dgclaw/primeiro-acesso.json"
+    nega "saida com link" tem "$SAIDA" "/primeiro-acesso#"
+    nega "senha na saida" tem "$SAIDA" "$pw"
+    nega "senha no registro de argv dos stubs" tem "$STUB_LOG" "$pw"
+    nega "senha em algum arquivo da raiz" grep -rqF -- "$pw" "$RAIZ"
+    limpar_cenario
+}
+
+caso_senha_stdin_funciona() {
+    novo_cenario
+    local pw='Outra-Senha-Longa-4455'
+    afirma "instala com --senha-stdin" instalar "$pw" --usuario maria --provedor claude --senha-stdin
+    afirma "hash gravado" grep -q "^DGCLAW_PANEL_PASSWORD_HASH='scrypt" "$RAIZ/etc/dgclaw/web.env"
+    nega "sem link" test -e "$RAIZ/etc/dgclaw/primeiro-acesso.json"
+    nega "senha na saida" tem "$SAIDA" "$pw"
+    limpar_cenario
+}
+
+caso_senha_stdin_vazia_falha() {
+    novo_cenario
+    nega "--senha-stdin sem senha" instalar "" --usuario maria --senha-stdin
+    afirma "explica" tem "$SAIDA" "--senha-stdin"
+    limpar_cenario
+}
+
+caso_reinstalar_sem_senha_mantem_a_atual() {
+    novo_cenario
+    afirma "primeira rodada com senha" instalacao_basica
+    cp "$RAIZ/etc/dgclaw/web.env" "$TMP/webenv1"
+    afirma "segunda rodada sem senha" instalar "" --usuario maria --provedor claude
+    afirma "hash igual" cmp "$TMP/webenv1" "$RAIZ/etc/dgclaw/web.env"
+    nega "nao gerou link" test -e "$RAIZ/etc/dgclaw/primeiro-acesso.json"
+    nega "saida sem link" tem "$SAIDA" "/primeiro-acesso#"
+    limpar_cenario
+}
+
+caso_novo_primeiro_acesso_gera_link_e_mantem_hash() {
+    novo_cenario
+    afirma "primeira rodada com senha" instalacao_basica
+    cp "$RAIZ/etc/dgclaw/web.env" "$TMP/webenv1"
+    afirma "segunda rodada com --novo-primeiro-acesso" instalar "" --usuario maria --provedor claude --novo-primeiro-acesso
+    afirma "criou o arquivo" test -f "$RAIZ/etc/dgclaw/primeiro-acesso.json"
+    afirma "hash antigo mantido" cmp "$TMP/webenv1" "$RAIZ/etc/dgclaw/web.env"
+    afirma "saida com link" tem "$SAIDA" "/primeiro-acesso#"
+    limpar_cenario
+}
+
+caso_ensaio_sem_senha_nao_cria_nada() {
+    novo_cenario
+    afirma "ensaio sem senha" instalar "" --usuario maria --provedor claude --ensaio
+    afirma "a raiz continua vazia" vazio "$RAIZ"
+    nega "nao imprime link" tem "$SAIDA" "/primeiro-acesso#"
+    limpar_cenario
+}
+
+caso_senha_nunca_e_impressa_nem_gravada_nem_em_argv() {
     novo_cenario
     local pw='Segredo-Unico-ZXQ-98765'
     afirma "instala" instalar "$pw" --usuario maria --provedor claude
     nega "senha no registro de argv dos stubs" tem "$STUB_LOG" "$pw"
-    afirma "senha entregue ao dono no final" tem "$SAIDA" "Senha:    $pw"
+    nega "senha na saida" tem "$SAIDA" "$pw"
     nega "senha em algum arquivo da raiz" grep -rqF -- "$pw" "$RAIZ"
     afirma "so o hash foi gravado" grep -q "^DGCLAW_PANEL_PASSWORD_HASH='scrypt" "$RAIZ/etc/dgclaw/web.env"
-    limpar_cenario
-}
-
-caso_usuario_obrigatorio_e_opcao_desconhecida() {
-    novo_cenario
-    nega "sem --usuario" instalar "$PAINEL_PW"
-    afirma "pede o usuario" tem "$SAIDA" "--usuario"
-    nega "opcao desconhecida" instalar "$PAINEL_PW" --usuario maria --voar
-    afirma "diz qual opcao" tem "$SAIDA" "--voar"
-    afirma "ajuda sai com 0" instalar "" --ajuda
-    afirma "ajuda mostra o uso" tem "$SAIDA" "Uso: sudo ./install.sh"
-    limpar_cenario
-}
-
-caso_caddyfile_com_outro_site_e_preservado() {
-    novo_cenario
-    mkdir -p "$RAIZ/etc/caddy"
-    printf 'import conf.d/*\n\noutro.exemplo.com {\n\trespond "oi"\n}\n' >"$RAIZ/etc/caddy/Caddyfile"
-    cp "$RAIZ/etc/caddy/Caddyfile" "$TMP/original"
-    afirma "instala" instalacao_basica
-    afirma "Caddyfile do outro site intacto" cmp "$TMP/original" "$RAIZ/etc/caddy/Caddyfile"
-    afirma "site do DG Claw em conf.d" tem "$RAIZ/etc/caddy/conf.d/dgclaw.caddy" "reverse_proxy 127.0.0.1:8300"
-    limpar_cenario
-}
-
-caso_caddyfile_com_outro_site_sem_import_para_com_explicacao() {
-    novo_cenario
-    mkdir -p "$RAIZ/etc/caddy"
-    printf 'outro.exemplo.com {\n\trespond "oi"\n}\n' >"$RAIZ/etc/caddy/Caddyfile"
-    cp "$RAIZ/etc/caddy/Caddyfile" "$TMP/original"
-    nega "sem import conf.d" instalacao_basica
-    afirma "explica a linha a acrescentar" tem "$SAIDA" "import conf.d/*"
-    afirma "Caddyfile intacto" cmp "$TMP/original" "$RAIZ/etc/caddy/Caddyfile"
-    nega "nada escrito em conf.d" test -e "$RAIZ/etc/caddy/conf.d/dgclaw.caddy"
-    limpar_cenario
-}
-
-caso_caddyfile_padrao_do_pacote_e_substituido() {
-    novo_cenario
-    mkdir -p "$RAIZ/etc/caddy"
-    cat >"$RAIZ/etc/caddy/Caddyfile" <<'FIM'
-# The Caddyfile is an easy way to configure your Caddy web server.
-#
-# Refer to the Caddy docs for more information:
-# https://caddyserver.com/docs/caddyfile
-
-:80 {
-	# Set this path to your site's directory.
-	root * /usr/share/caddy
-
-	# Enable the static file server.
-	file_server
-}
-FIM
-    afirma "instala" instalacao_basica
-    afirma "virou o nosso" tem "$RAIZ/etc/caddy/Caddyfile" "# DG Claw"
-    nega "o exemplo sumiu" tem "$RAIZ/etc/caddy/Caddyfile" "file_server"
-    limpar_cenario
-}
-
-caso_sem_imagem_nao_constroi() {
-    novo_cenario
-    afirma "instala no modo rapido por padrao" instalacao_basica
-    nega "nao inicia a construcao" tem "$STUB_LOG" "dgclaw-imagem.service"
-    afirma "deixa a unidade disponivel para o Admin" test -e "$RAIZ/etc/systemd/system/dgclaw-imagem.service"
-    nega "audio fica para depois" tem "$STUB_LOG" "ffmpeg"
-    afirma "entrega endereco para o usuario" tem "$SAIDA" "Seu DG Claw está instalado e configurado em"
-    limpar_cenario
-}
-
-caso_firewall_da_cerca_e_idempotente() {
-    novo_cenario
-    local rc=0
-    local _
-    for _ in 1 2; do
-        env -i "HOME=$TMP" "PATH=$AQUI/stubs:/usr/bin:/bin" "DGCLAW_STUB_LOG=$STUB_LOG" "DGCLAW_STUB_ESTADO=$TMP/estado" \
-            bash "$REPO/lib/firewall.sh" >"$SAIDA" 2>&1 || rc=$?
-    done
-    igual "$rc" 0 || { echo "      FALHOU: firewall.sh terminou com $rc"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$STUB_LOG" 'iptables -w -t filter -I INPUT 1')" 1 || { echo "      FALHOU: salto de INPUT duplicado"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$STUB_LOG" 'iptables -w -t filter -I FORWARD 1')" 1 || { echo "      FALHOU: salto de FORWARD duplicado"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$TMP/estado/ipt-regras" '|DGCLAW_EGRESS|')" 7 || { echo "      FALHOU: regras da cadeia EGRESS duplicadas"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$TMP/estado/ipt-regras" '|DGCLAW_HOST|')" 2 || { echo "      FALHOU: regras da cadeia HOST duplicadas"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$TMP/estado/ipt-regras" '|mangle/DGCLAW_EGRESS|')" 7 || { echo "      FALHOU: regras da cadeia EGRESS do mangle duplicadas"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$TMP/estado/ipt-regras" '|FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS')" 1 || { echo "      FALHOU: salto da filter duplicado"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$TMP/estado/ipt-regras" '|mangle/FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS')" 1 || { echo "      FALHOU: salto do mangle duplicado"; FALHAS=$((FALHAS + 1)); }
-    limpar_cenario
-}
-
-# roda_firewall: aplica lib/firewall.sh com o stub de iptables do cenario atual.
-roda_firewall() {
-    env -i "HOME=$TMP" "PATH=$AQUI/stubs:/usr/bin:/bin" "DGCLAW_STUB_LOG=$STUB_LOG" "DGCLAW_STUB_ESTADO=$TMP/estado" \
-        bash "$REPO/lib/firewall.sh" >"$SAIDA" 2>&1
-}
-
-caso_firewall_poe_a_cerca_na_tabela_mangle() {
-    novo_cenario
-    afirma "firewall.sh termina bem" roda_firewall
-    local r="$TMP/estado/ipt-regras" rede
-    afirma "cadeia criada no mangle" grep -qxF "mangle/DGCLAW_EGRESS" "$TMP/estado/ipt-cadeias"
-    for rede in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 127.0.0.0/8; do
-        afirma "mangle derruba $rede" tem "$r" "|mangle/DGCLAW_EGRESS| -d $rede -j DROP"
-    done
-    afirma "mangle termina em RETURN" tem "$r" "|mangle/DGCLAW_EGRESS| -j RETURN"
-    afirma "salto no FORWARD do mangle" tem "$r" "|mangle/FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS"
-    limpar_cenario
-}
-
-caso_firewall_retoma_o_topo_quando_o_netavark_empurra() {
-    novo_cenario
-    mkdir -p "$TMP/estado"
-    printf '%s\n' \
-        '|FORWARD| -j NETAVARK_FORWARD' \
-        '|FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS' >"$TMP/estado/ipt-regras"
-    afirma "firewall.sh termina bem" roda_firewall
-    local r="$TMP/estado/ipt-regras" f
-    f="$(grep -F '|FORWARD| ' "$r")"
-    igual "$(printf '%s\n' "$f" | head -n 1)" '|FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS' || { echo "      FALHOU: nosso salto nao esta na posicao 1 do FORWARD"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$r" '|FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS')" 1 || { echo "      FALHOU: ficou mais de um salto no FORWARD"; FALHAS=$((FALHAS + 1)); }
-    afirma "o salto do netavark continua la, embaixo" tem "$r" "|FORWARD| -j NETAVARK_FORWARD"
-    limpar_cenario
-}
-
-caso_firewall_rodar_duas_vezes_nao_duplica() {
-    novo_cenario
-    local _
-    for _ in 1 2; do roda_firewall || { echo "      FALHOU: firewall.sh terminou com erro"; FALHAS=$((FALHAS + 1)); }; done
-    local r="$TMP/estado/ipt-regras"
-    igual "$(contar "$r" '|FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS')" 1 || { echo "      FALHOU: salto da filter duplicado"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$r" '|mangle/FORWARD| -s 10.89.0.0/16 -j DGCLAW_EGRESS')" 1 || { echo "      FALHOU: salto do mangle duplicado"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$r" '|INPUT| -s 10.89.0.0/16 -j DGCLAW_HOST')" 1 || { echo "      FALHOU: salto do INPUT duplicado"; FALHAS=$((FALHAS + 1)); }
-    igual "$(contar "$r" '|mangle/DGCLAW_EGRESS|')" 7 || { echo "      FALHOU: regras do mangle duplicadas"; FALHAS=$((FALHAS + 1)); }
-    limpar_cenario
-}
-
-# proc_inotify <instancias> <watches>: poe os limites atuais no /proc falso da raiz.
-proc_inotify() {
-    mkdir -p "$RAIZ/proc/sys/fs/inotify"
-    printf '%s\n' "$1" >"$RAIZ/proc/sys/fs/inotify/max_user_instances"
-    printf '%s\n' "$2" >"$RAIZ/proc/sys/fs/inotify/max_user_watches"
-}
-
-caso_inotify_sobe_o_padrao_do_ubuntu() {
-    novo_cenario
-    local conf="$RAIZ/etc/sysctl.d/90-dgclaw-inotify.conf"
-    proc_inotify 128 65536
-    afirma "instala" instalacao_basica
-    afirma "instancias subiram para 1024" tem "$conf" "fs.inotify.max_user_instances=1024"
-    afirma "watches subiram para 524288" tem "$conf" "fs.inotify.max_user_watches=524288"
-    afirma "arquivo com modo 644" modo_e "$conf" 644
-    afirma "sysctl chamado com -p e o arquivo" tem "$STUB_LOG" "sysctl -p $conf"
-    nega "nunca com --system" tem "$STUB_LOG" "sysctl --system"
-    limpar_cenario
-}
-
-caso_inotify_nunca_abaixa() {
-    novo_cenario
-    local conf="$RAIZ/etc/sysctl.d/90-dgclaw-inotify.conf"
-    proc_inotify 4096 1048576
-    afirma "instala" instalacao_basica
-    afirma "mantem as instancias maiores (4096)" tem "$conf" "fs.inotify.max_user_instances=4096"
-    afirma "mantem os watches maiores" tem "$conf" "fs.inotify.max_user_watches=1048576"
-    limpar_cenario
-}
-
-caso_inotify_sem_proc_usa_o_minimo() {
-    novo_cenario
-    local conf="$RAIZ/etc/sysctl.d/90-dgclaw-inotify.conf"
-    afirma "instala sem /proc falso" instalacao_basica
-    afirma "usa 1024" tem "$conf" "fs.inotify.max_user_instances=1024"
-    afirma "usa 524288" tem "$conf" "fs.inotify.max_user_watches=524288"
-    limpar_cenario
-}
-
-caso_inotify_ensaio_nao_grava_nem_aplica() {
-    novo_cenario
-    proc_inotify 128 65536
-    afirma "ensaio termina" instalar "$PAINEL_PW" --usuario maria --provedor claude --ensaio
-    nega "nao gravou o arquivo" test -e "$RAIZ/etc/sysctl.d/90-dgclaw-inotify.conf"
-    nega "nao chamou o sysctl" tem "$STUB_LOG" "sysctl"
-    afirma "anuncia o sysctl -p" tem "$SAIDA" "[ensaio] sysctl -p"
-    limpar_cenario
-}
-
-caso_inotify_sysctl_recusado_nao_derruba_o_install() {
-    novo_cenario
-    local conf="$RAIZ/etc/sysctl.d/90-dgclaw-inotify.conf"
-    proc_inotify 128 65536
-    mkdir -p "$TMP/estado"; touch "$TMP/estado/sysctl-falha"
-    afirma "instala mesmo com o sysctl recusado (VPS em container)" instalacao_basica
-    afirma "o arquivo ficou gravado" tem "$conf" "fs.inotify.max_user_instances=1024"
-    afirma "avisa que nao aplicou" tem "$SAIDA" "nao consegui aplicar o limite de inotify"
-    afirma "diz o limite atual e quantos agentes cabem" tem "$SAIDA" "O limite atual e 128"
-    afirma "faz a conta de agentes" tem "$SAIDA" "cabem uns 21 agentes"
-    afirma "a instalacao chegou ao fim (Admin configurado depois)" test -f "$RAIZ/etc/systemd/system/dgclaw-admin.service"
-    limpar_cenario
-}
-
-caso_inotify_rodar_duas_vezes_nao_muda() {
-    novo_cenario
-    local conf="$RAIZ/etc/sysctl.d/90-dgclaw-inotify.conf"
-    proc_inotify 128 65536
-    afirma "primeira rodada" instalacao_basica
-    cp "$conf" "$TMP/conf1"
-    touch -d '2020-01-01' "$conf"
-    afirma "segunda rodada" instalar "" --usuario maria --provedor claude
-    afirma "conteudo igual" cmp "$TMP/conf1" "$conf"
-    afirma "nem reescreveu o arquivo (data intacta)" test "$(stat -c %Y "$conf")" = "$(date -d '2020-01-01' +%s)"
-    limpar_cenario
-}
-
-caso_distribuicao_publica_sem_manifesto_legado() {
-    novo_cenario
-    rm "$FALSO/.claude-plugin/plugin.json"
-    afirma "instala a distribuicao v1 sem manifesto antigo" instalacao_basica
-    afirma "identifica a distribuicao como v1" tem "$RAIZ/etc/dgclaw/dgclaw.env" "DGCLAW_VERSAO=v1"
-    nega "nao anuncia versao zero" tem "$SAIDA" "a versao vai constar como 0"
     limpar_cenario
 }

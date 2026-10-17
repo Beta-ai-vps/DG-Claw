@@ -12,6 +12,11 @@ chat e agentes que rodam isolados em containers.
 
 ### Adicionado
 
+- Primeiro acesso por link: o instalador não pede mais senha. No fim mostra o link do painel e um link
+  de primeiro acesso, de uso único e válido por 30 minutos, onde a pessoa cadastra a senha no navegador
+  e já entra no chat do Admin. A senha nunca aparece no terminal. `--senha-stdin` e a pergunta
+  interativa continuam funcionando, `sudo dgclaw primeiro-acesso` gera um link novo e
+  `sudo dgclaw senha` troca a senha.
 - Instalador `install.sh`, que mostra cada etapa em português, pode ser executado de novo sem
   estragar nada e tem o modo `--ensaio`, que lista o que faria sem mudar a máquina.
 - Endereço HTTPS automático pelo Caddy: o nome do servidor na Hostinger (`hstgr.cloud`) quando ele

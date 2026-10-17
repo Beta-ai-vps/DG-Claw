@@ -47,6 +47,9 @@ comprometido ainda consegue mandar dados para a internet (ver "Pendências").
   `node panel/bin/senha-hash.js`, que lê a senha pelo teclado sem mostrar e exige no mínimo 12
   caracteres. Senha `admin` ou ausente deixa o painel **trancado**: ninguém entra pela senha, e o
   log diz o que configurar.
+- Na instalação não há senha em texto: o instalador gera um link de primeiro acesso, de uso único e válido
+  por 30 minutos, com o código no fragmento da URL (não vai para o log do Caddy). Em disco fica só o hash
+  do código (`primeiro-acesso.json`, modo 600). Cadastrar a senha pelo link consome o código.
 - A sessão é assinada pelo servidor e vence em 30 dias. Trocar a senha invalida todas as
   sessões abertas.
 - Depois de 10 senhas erradas em 15 minutos, o painel responde "Muitas tentativas erradas.

@@ -52,7 +52,7 @@ O procedimento de instalação está em [INSTALAR.md](INSTALAR.md). No Claude Co
 
 > Baixa, analisa e instala o DG Claw: https://github.com/DGatoM/DG-Claw
 
-Se a pasta do projeto já estiver aberta, basta pedir **“instala”**. Você escolhe o usuário e a senha
+Se a pasta do projeto já estiver aberta, basta pedir **“instala”**. Você escolhe o usuário
 do painel e acompanha as etapas da instalação.
 
 Para instalar manualmente, são três comandos:
@@ -63,8 +63,10 @@ cd DG-Claw
 sudo ./install.sh --usuario admin
 ```
 
-O instalador pede uma senha de pelo menos 12 caracteres. Ao terminar, mostra o link do painel,
-login e senha. O Admin usa o motor escolhido na instalação, Claude Code ou Codex, e reaproveita o login
+O instalador não pede senha. Ao terminar, mostra o link do painel, o usuário e um link de primeiro
+acesso (uso único, vale 30 minutos), onde você cadastra a senha no navegador e já entra no chat do Admin.
+A senha nunca aparece no terminal. `sudo dgclaw primeiro-acesso` gera um link novo e `sudo dgclaw senha`
+troca a senha. O Admin usa o motor escolhido na instalação, Claude Code ou Codex, e reaproveita o login
 correspondente que já existe no root desta VPS. A opção `--provedor claude` ou `--provedor codex`
 define a escolha; sem opção, a configuração anterior é preservada e, em instalação nova,
 o instalador procura Claude primeiro e depois o login do Codex.

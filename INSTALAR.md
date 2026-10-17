@@ -1,6 +1,7 @@
 # Instalar o DG Claw
 
-O resultado é um painel com endereço HTTPS, usuário e senha, aberto na conversa com o Admin.
+O resultado é um painel com endereço HTTPS e usuário, aberto na conversa com o Admin. A senha você cadastra
+no navegador, pelo link de primeiro acesso que o instalador mostra no fim.
 A instalação inicial prepara esse acesso. O primeiro agente, áudio e canais são configurados depois,
 pelo painel.
 
@@ -17,7 +18,8 @@ No terminal do Claude Code, você pode pedir:
 > Baixa, analisa e instala o DG Claw: https://github.com/DGatoM/DG-Claw
 
 Com o projeto já aberto, o pedido pode ser apenas **“instala”**. Este documento contém o procedimento
-completo. A escolha do usuário e da senha do painel faz parte da instalação.
+completo. O Claude roda `sudo ./install.sh --usuario <nome>` sem senha nenhuma, e a pessoa cadastra a
+senha no navegador. O Claude não pede a senha no chat nem a passa por stdin.
 
 ## Etapas da instalação
 
@@ -28,10 +30,14 @@ o andamento em português, com explicações e mensagens de conclusão.
    Se algo faltar, a mensagem explica como resolver antes de continuar.
 2. **Baixar o programa.** Na primeira instalação: `git clone https://github.com/DGatoM/DG-Claw`
    e `cd DG-Claw`. Quem recebeu o pacote compactado pode abrir a pasta extraída.
-3. **Definir o acesso.** Escolha um usuário e uma senha de pelo menos 12 caracteres para o painel.
-   Essa senha é separada da conta Claude. O comando é `sudo ./install.sh --usuario <seu-usuario>`.
-   Ele pede a senha sem exibir a digitação. Para automação, recebe a senha pela entrada padrão,
-   nunca por argumento. Repetir sem senha nova mantém a anterior.
+3. **Definir o acesso.** Escolha um usuário para o painel. O comando é
+   `sudo ./install.sh --usuario <seu-usuario>`, sem senha. O instalador gera um link de primeiro
+   acesso, de uso único e válido por 30 minutos, onde você cadastra a senha no navegador (pelo menos
+   12 caracteres, separada da conta Claude). Quem prefere definir a senha no terminal pode digitá-la
+   quando o instalador perguntar (só aparece se o terminal for interativo; Enter pula). Para
+   automação existe `--senha-stdin`, que lê a senha pela entrada padrão, nunca por argumento.
+   Repetir o instalador em uma máquina que já tem senha mantém a atual. `--novo-primeiro-acesso`
+   força um link novo.
 4. **Instalar as bibliotecas.** Node.js executa o painel; npm instala e compila o programa do Admin;
    Caddy fornece o endereço seguro. Podman prepara a separação dos futuros agentes e ufw protege
    as portas do servidor. A instalação aproveita os componentes que já estão disponíveis.
@@ -40,11 +46,11 @@ o andamento em português, com explicações e mensagens de conclusão.
    ela. Caso contrário, o instalador tenta um endereço sslip.io baseado no IP. Um domínio próprio
    pode ser informado com `--dominio painel.exemplo.com`, já apontando para o servidor.
    O Caddy solicita o certificado HTTPS e o firewall libera SSH, HTTP e HTTPS.
-6. **Ligar o painel e o Admin.** O painel guarda somente o hash da senha. O Admin é uma sessão
+6. **Ligar o painel e o Admin.** O painel guarda somente o hash da senha, e o link de primeiro acesso guarda só o hash do código. O Admin é uma sessão
    normal do Claude Code ou Codex, com poderes de administrador para cuidar desta VPS. Ele reutiliza a
    autenticação que já existe no root. Nenhuma credencial do root é copiada para os novos agentes.
 7. **Testar o runtime.** O instalador verifica o HTTPS, o painel e o serviço que executa o Admin,
-   e envia a mensagem de boas-vindas. O acesso aparece ao final com endereço, login e senha.
+   e envia a mensagem de boas-vindas. O acesso aparece ao final com endereço, usuário e link de primeiro acesso. A senha nunca é mostrada.
    O primeiro agente terá um teste próprio: a apresentação só termina quando ele responder.
 
 A duração depende da rede e dos pacotes já instalados. `--ensaio` mostra as mudanças previstas sem
@@ -54,9 +60,12 @@ aplicá-las. `--com-imagem` adianta a construção da imagem dos futuros agentes
 ## Abrir o painel
 
 O final mostra **“Seu DG Claw está instalado e configurado em … Clique aqui para acessar”**,
-seguido do login e da senha. Guarde o acesso em local privado. Daqui pra frente é pelo painel.
+seguido do usuário e do link de primeiro acesso. Abra esse link no navegador, cadastre a senha e você já
+entra no chat do Admin. O link vale 30 minutos e só funciona uma vez; se expirar, gere outro com
+`sudo dgclaw primeiro-acesso`. Para trocar a senha depois, use `sudo dgclaw senha`.
+Daqui pra frente é pelo painel.
 
-Abra o link e toque em **Quero criar meu primeiro agente**. O Admin pergunta o nome e o formulário
+No Admin, toque em **Quero criar meu primeiro agente**. O Admin pergunta o nome e o formulário
 reúne função, tom e foto opcional. Você pode subir uma foto ou gerar um avatar ilustrado no navegador.
 Depois, o Admin prepara o agente, orienta a conexão da sua assinatura e testa uma resposta real.
 A caixa abre, apresenta seu agente e leva à conversa dele.

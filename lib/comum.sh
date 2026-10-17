@@ -88,6 +88,31 @@ escrever_arquivo() {
     mv -f "$tmp" "$alvo"
 }
 
+# agora_ms: epoch em milissegundos. Nos testes (DGCLAW_RAIZ definida), DGCLAW_AGORA_MS fixa o relogio.
+agora_ms() {
+    if [ -n "$R" ] && [ -n "${DGCLAW_AGORA_MS:-}" ]; then
+        printf '%s' "$DGCLAW_AGORA_MS"
+    else
+        printf '%s' "$(( $(date +%s) * 1000 ))"
+    fi
+}
+
+# gerar_primeiro_acesso <usuario>
+# Gera a credencial do link de primeiro acesso (32 bytes em base64url, 43 caracteres) e grava
+# $DG_ETC/primeiro-acesso.json (modo 600), trocando o anterior: o link velho deixa de valer.
+# Imprime SO a credencial no stdout. Ela nunca vai para disco nem para log; o arquivo guarda
+# apenas o sha256 dela. Contrato com o web: web/lib/primeiro-acesso.js.
+gerar_primeiro_acesso() {
+    local usuario="$1" tk hash criado
+    tk="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+    hash="$(printf '%s' "$tk" | sha256sum | cut -d' ' -f1)"
+    criado="$(agora_ms)"
+    printf '{"versao":1,"usuario":"%s","token_sha256":"%s","criado":%s,"expira":%s,"usado_em":null}\n' \
+        "$usuario" "$hash" "$criado" "$((criado + 30 * 60 * 1000))" \
+        | escrever_arquivo "$DG_ETC/primeiro-acesso.json" 600 >&2
+    printf '%s' "$tk"
+}
+
 # garantir_pular_aviso_bypass <caminho do settings.json> [modo] [uid:gid]
 # Poe `"skipDangerousModePermissionPrompt": true` no settings do Claude Code, sem perder nada
 # do que ja existe. Por que: desde o Claude Code 2.x, no modo bypassPermissions ele abre o aviso

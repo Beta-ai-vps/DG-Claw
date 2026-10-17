@@ -81,7 +81,10 @@ Imagem dos agentes
   dgclaw imagem construir [--agora]      constroi a imagem (em segundo plano, ou aqui com --agora)
 
 Painel
-  dgclaw senha trocar                    troca a senha do painel (a nova senha vem pelo STDIN)
+  dgclaw primeiro-acesso                 gera um link novo de primeiro acesso (uso unico, vale 30 min)
+      O link antigo deixa de valer. Abra, cadastre a senha no navegador e voce ja entra no painel.
+      Exemplo:  sudo dgclaw primeiro-acesso
+  dgclaw senha [trocar]                  troca a senha do painel (a nova senha vem pelo STDIN)
       Exemplo:  printf '%s\n' "minha senha nova" | dgclaw senha trocar
 
 Geral
@@ -1385,14 +1388,32 @@ senha_trocar() {
         /^DGCLAW_PANEL_PASSWORD_HASH=/ {print linha; feito = 1; next}
         {print}
         END {if (!feito) print linha}' "$web_env" | escrever_arquivo "$web_env" 600
+    # Senha nova definida: um link de primeiro acesso pendente nao faz mais sentido.
+    rm -f "$DG_ETC/primeiro-acesso.json"
     executar systemctl restart dgclaw-web
     ok "senha do painel trocada"
 }
 
+primeiro_acesso() {
+    local web_env="$DG_ETC/web.env" usuario="" tk base
+    [ -f "$web_env" ] || falha "nao achei $web_env." "o DG Claw Web ainda nao foi instalado; rode o instalador: sudo ./install.sh --usuario <nome>"
+    usuario="$(sed -n 's/^DGCLAW_PANEL_USER=//p;T;q' "$web_env")"
+    [ -n "$usuario" ] || falha "nao achei a linha DGCLAW_PANEL_USER em $web_env." "rode o instalador de novo: sudo ./install.sh --usuario <nome>"
+    [ "$ENSAIO" = 1 ] && {
+        info "[ensaio] geraria um link de primeiro acesso para $usuario e gravaria $DG_ETC/primeiro-acesso.json (o link anterior deixaria de valer)"
+        return 0
+    }
+    carregar_env_dgclaw
+    tk="$(gerar_primeiro_acesso "$usuario")"
+    if [ -n "${DGCLAW_DOMINIO:-}" ]; then base="https://$DGCLAW_DOMINIO"; else base="http://127.0.0.1:8300"; fi
+    printf '%s/primeiro-acesso#%s\n' "$base" "$tk"
+    printf 'uso unico, vale 30 min; o link anterior deixou de valer\n' >&2
+}
+
 senha_main() {
     case "${1:-}" in
-        trocar) shift; senha_trocar "$@" ;;
-        *) falha "faltou dizer o que fazer com a senha." "use: dgclaw senha trocar" ;;
+        ""|trocar) shift || true; senha_trocar "$@" ;;
+        *) falha "o subcomando 'senha ${1:-}' nao existe." "use: dgclaw senha trocar" ;;
     esac
 }
 
@@ -1509,6 +1530,7 @@ main() {
         agente) agente_main "$@" ;;
         imagem) imagem_main "$@" ;;
         senha) senha_main "$@" ;;
+        primeiro-acesso) primeiro_acesso "$@" ;;
         status) status_geral "$@" ;;
         *) falha "o comando '$cmd' nao existe." "veja os comandos com: dgclaw --ajuda" ;;
     esac

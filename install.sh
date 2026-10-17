@@ -2,11 +2,13 @@
 # install.sh: instala o DG Claw v1 no servidor (o "host").
 #
 #   sudo ./install.sh --usuario <nome> [--dominio <dominio>] [--provedor claude|codex]
+#                     [--senha-stdin] [--novo-primeiro-acesso]
 #                     [--ensaio] [--com-imagem] [--sem-imagem] [--ajuda]
 #
-# A senha do painel chega pelo STDIN (nunca por argumento, porque argumento aparece
-# no `ps` e no historico do shell). Se o STDIN for um terminal, o script pergunta
-# sem mostrar o que foi digitado.
+# O padrao e NAO pedir senha: o instalador gera um link de primeiro acesso (uso unico, vale
+# 30 min) e a pessoa cadastra a senha no navegador. Assim a senha nunca aparece no terminal
+# (que pode estar projetado numa aula). Quem quiser mesmo pode mandar a senha pelo STDIN
+# (nunca por argumento, que aparece no `ps` e no historico do shell); a senha nunca e impressa.
 #
 # O que ele faz, nesta ordem (cada passo imprime o que esta fazendo):
 #   1. confere a maquina (Ubuntu, root, memoria, disco, portas 80 e 443)
@@ -44,7 +46,10 @@ PROVEDOR_ARG=""
 ARG_ENSAIO=0
 SEM_IMAGEM=1
 SENHA=""
-SENHA_ENTREGA=""
+ARG_SENHA_STDIN=0
+ARG_NOVO_PRIMEIRO_ACESSO=0
+PRIMEIRO_ACESSO_TOKEN=""
+SENHA_NOVA=0
 DOMINIO=""
 PROVEDOR=""
 VERSAO=""
@@ -60,15 +65,24 @@ Instala o DG Claw neste servidor: painel com HTTPS, Admin e a base para criar ag
   --dominio <dominio>   endereco proprio (padrao: um endereco gratuito, escolhido sozinho)
   --provedor claude|codex
                         com qual assinatura o Admin trabalha (padrao: o que estiver logado aqui)
+  --senha-stdin         le a senha do painel do STDIN (sem esperar; erro se vier vazia ou curta)
+  --novo-primeiro-acesso
+                        gera um link de primeiro acesso novo mesmo que o painel ja tenha senha
+                        (a senha antiga vale ate o link ser usado)
   --ensaio              mostra o que faria, passo a passo, sem mudar nada
   --com-imagem          adianta a preparacao dos agentes em segundo plano (opcional)
   --sem-imagem          prepara so o painel e o Admin (padrao; agentes depois pelo painel)
   --ajuda               mostra esta ajuda
 
-A senha do painel (minimo 12 caracteres) entra pelo STDIN, nunca na linha de comando:
-  - num terminal, o script pergunta e nao mostra o que voce digita;
+Senha do painel: o padrao e nao informar nenhuma. No fim, o instalador mostra um link de
+primeiro acesso (uso unico, vale 30 minutos): voce abre, cadastra a senha no navegador e ja
+entra no painel. Se o link expirar, gere outro com: sudo dgclaw primeiro-acesso
+Se preferir definir a senha aqui (minimo 12 caracteres), ela entra pelo STDIN, nunca na linha
+de comando, e nunca e mostrada de volta:
+  - num terminal, o script pergunta (Enter pula e gera o link);
   - por um pipe: leia a senha sem eco e mande para o script, por exemplo
         read -rs SENHA; printf '%s\n' "$SENHA" | sudo ./install.sh --usuario voce
+  - com --senha-stdin, a senha e obrigatoria no STDIN.
 Ao rodar de novo, se nenhuma senha chegar, a atual continua valendo.
 FIM
 }
@@ -84,6 +98,8 @@ parse_args() {
             --provedor) [ $# -ge 2 ] || arg_sem_valor "$1"; PROVEDOR_ARG="$2"; shift 2 ;;
             --provedor=*) PROVEDOR_ARG="${1#*=}"; shift ;;
             --ensaio)   ARG_ENSAIO=1; shift ;;
+            --senha-stdin) ARG_SENHA_STDIN=1; shift ;;
+            --novo-primeiro-acesso) ARG_NOVO_PRIMEIRO_ACESSO=1; shift ;;
             --com-imagem) SEM_IMAGEM=0; shift ;;
             --sem-imagem) SEM_IMAGEM=1; shift ;;
             --ajuda|-h|--help) uso; exit 0 ;;
@@ -178,15 +194,30 @@ ligar_unidade() {
 tem_jq() { command -v jq >/dev/null 2>&1; }
 
 # --- senha ---------------------------------------------------------------------
+tem_senha_guardada() {
+    local hash=""
+    [ -s "$DG_ETC/web.env" ] || return 1
+    hash="$(sed -n "s/^DGCLAW_PANEL_PASSWORD_HASH='\(.*\)'$/\1/p;T;q" "$DG_ETC/web.env")"
+    [[ "$hash" == scrypt\$* ]]
+}
+
 ler_senha() {
     local linha="" confirma=""
-    if [ -t 0 ]; then
+    if [ "$ARG_SENHA_STDIN" = 1 ]; then
+        if [ "$ENSAIO" = 1 ]; then
+            info "(ensaio) a senha do painel nao e lida."
+            return 0
+        fi
+        if IFS= read -r linha; then :; fi
+        [ -n "${linha%$'\r'}" ] || falha "a opcao --senha-stdin foi usada, mas a senha nao chegou pelo STDIN (veio vazia)." \
+            "mande a senha pelo STDIN: read -rs SENHA; printf '%s\n' \"\$SENHA\" | sudo ./install.sh --usuario $USUARIO --senha-stdin"
+    elif [ -t 0 ]; then
         if [ "$ENSAIO" = 1 ]; then
             info "(ensaio) a senha do painel nao e pedida."
             return 0
         fi
-        local dica="digite a senha do painel (minimo 12 caracteres)"
-        if [ -s "$DG_ETC/web.env" ]; then dica="$dica, ou Enter para manter a atual"; fi
+        local dica="digite a senha do painel (minimo 12 caracteres), ou Enter para receber um link de primeiro acesso"
+        if tem_senha_guardada; then dica="digite a senha do painel (minimo 12 caracteres), ou Enter para manter a atual"; fi
         read -rsp "   $dica: " linha || true # EOF no terminal = Enter vazio
         printf '\n' >&2
         if [ -n "$linha" ]; then
@@ -195,17 +226,18 @@ ler_senha() {
             [ "$linha" = "$confirma" ] || falha "as duas senhas digitadas sao diferentes." "rode ./install.sh de novo e digite a mesma senha nas duas vezes."
         fi
     else
-        # EOF sem quebra de linha ainda entrega o texto lido em $linha; por isso o if.
-        if IFS= read -r linha; then :; fi
+        # Pipe antigo (printf senha | ./install.sh): tenta uma linha, por 2 segundos. Nada chegou
+        # (vazio, EOF, /dev/null, timeout) = segue sem senha, com link de primeiro acesso.
+        if [ "$ENSAIO" = 1 ]; then
+            info "(ensaio) a senha do painel nao e lida."
+            return 0
+        fi
+        if IFS= read -r -t 2 linha; then :; fi
     fi
     SENHA="${linha%$'\r'}"
     if [ -n "$SENHA" ] && [ "${#SENHA}" -lt 12 ]; then
         falha "a senha tem ${#SENHA} caracteres e o minimo e 12." \
-            "escolha uma senha maior (uma frase curta serve) e rode ./install.sh de novo."
-    fi
-    if [ -z "$SENHA" ] && [ ! -s "$DG_ETC/web.env" ] && [ "$ENSAIO" != 1 ]; then
-        falha "a senha do painel nao chegou pelo STDIN e este servidor ainda nao tem uma." \
-            "mande a senha pelo STDIN, sem coloca-la na linha de comando: read -rs SENHA; printf '%s\n' \"\$SENHA\" | sudo ./install.sh --usuario $USUARIO"
+            "escolha uma senha maior (uma frase curta serve) e rode ./install.sh de novo, ou nao informe senha para receber o link de primeiro acesso."
     fi
 }
 
@@ -608,8 +640,9 @@ gerar_hash() {
 }
 
 configurar_senha() {
-    passo "Guardando o usuario e o hash da senha do painel"
-    local web_env="$DG_ETC/web.env" hash=""
+    passo "Guardando o usuario e a senha do painel"
+    local web_env="$DG_ETC/web.env" hash="" tem=0
+    if tem_senha_guardada; then tem=1; fi
     if [ -n "$SENHA" ]; then
         if [ "$ENSAIO" = 1 ]; then
             info "[ensaio] geraria o hash da senha e gravaria ${web_env#"$R"}"
@@ -617,16 +650,25 @@ configurar_senha() {
             return 0
         fi
         hash="$(gerar_hash)"
-        SENHA_ENTREGA="$SENHA"
         SENHA=""
+        SENHA_NOVA=1
+        # Senha definida agora: um link de primeiro acesso pendente nao faz mais sentido.
+        rm -f "$DG_ETC/primeiro-acesso.json"
         ok "senha nova guardada como hash (a senha em si nao e gravada em lugar nenhum)"
-    elif [ -s "$web_env" ]; then
+    elif [ "$tem" = 1 ] && [ "$ARG_NOVO_PRIMEIRO_ACESSO" != 1 ]; then
         hash="$(sed -n "s/^DGCLAW_PANEL_PASSWORD_HASH='\(.*\)'$/\1/p;T;q" "$web_env")"
-        [ -n "$hash" ] || falha "nao consegui ler o hash atual em ${web_env#"$R"}." \
-            "mande uma senha nova pelo STDIN e rode de novo: read -rs SENHA; printf '%s\n' \"\$SENHA\" | sudo ./install.sh --usuario $USUARIO"
         aviso "nenhuma senha nova chegou; a senha atual do painel continua valendo."
     else
-        info "[ensaio] sem senha e sem web.env: uma instalacao de verdade pediria a senha."
+        if [ "$ENSAIO" = 1 ]; then
+            info "[ensaio] gravaria ${web_env#"$R"} e geraria um link de primeiro acesso (uso unico, 30 min)"
+            return 0
+        fi
+        if [ "$tem" = 1 ]; then
+            hash="$(sed -n "s/^DGCLAW_PANEL_PASSWORD_HASH='\(.*\)'$/\1/p;T;q" "$web_env")"
+        fi
+        printf "DGCLAW_PANEL_USER=%s\nDGCLAW_PANEL_PASSWORD_HASH='%s'\n" "$USUARIO" "$hash" | escrever_arquivo "$web_env" 600
+        PRIMEIRO_ACESSO_TOKEN="$(gerar_primeiro_acesso "$USUARIO")"
+        ok "link de primeiro acesso gerado (vale 30 min, uso unico)"
         return 0
     fi
     printf "DGCLAW_PANEL_USER=%s\nDGCLAW_PANEL_PASSWORD_HASH='%s'\n" "$USUARIO" "$hash" | escrever_arquivo "$web_env" 600
@@ -907,17 +949,19 @@ testar_fim() {
 
 mensagem_final() {
     printf '\n%sSeu DG Claw está instalado e configurado em https://%s.%s\n' "$_C_OK" "$DOMINIO" "$_C_0"
-    printf 'Clique aqui para acessar: https://%s/a/admin\n\n' "$DOMINIO"
-    printf '   Painel:   https://%s/a/admin\n' "$DOMINIO"
+    printf '   Painel:   https://%s/\n' "$DOMINIO"
     printf '   Usuario:  %s\n' "$USUARIO"
-    if [ -n "$SENHA_ENTREGA" ]; then
-        printf '   Senha:    %s\n\n' "$SENHA_ENTREGA"
-        SENHA_ENTREGA=""
+    if [ -n "$PRIMEIRO_ACESSO_TOKEN" ]; then
+        printf '\n   Primeiro acesso (uso único, vale 30 min): https://%s/primeiro-acesso#%s\n' "$DOMINIO" "$PRIMEIRO_ACESSO_TOKEN"
+        printf '   Abra o link de primeiro acesso, cadastre sua senha e você já entra no chat do Admin.\n'
+        printf '   Se o link expirar, gere outro com: sudo dgclaw primeiro-acesso\n\n'
+        PRIMEIRO_ACESSO_TOKEN=""
+    elif [ "$SENHA_NOVA" = 1 ]; then
+        printf '   Senha:    a que você definiu agora\n\n'
     else
-        printf '   Senha:    a que voce escolheu anteriormente (foi mantida)\n\n'
+        printf '   Senha:    a que você escolheu antes (foi mantida)\n\n'
     fi
     printf '   Daqui pra frente é pelo painel. Pode fechar este terminal.\n'
-    printf '   Abra o link, entre com seu usuario e senha e converse com o Admin.\n'
     printf '   Peça: "Quero criar meu primeiro agente".\n'
     if [ "$ENSAIO" = 1 ]; then
         printf '\n   (isto foi um ensaio: nada foi mudado neste servidor)\n'

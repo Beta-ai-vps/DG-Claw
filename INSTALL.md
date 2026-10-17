@@ -4,4 +4,6 @@ O passo a passo em português está em [INSTALAR.md](INSTALAR.md): requisitos, e
 acesso ao painel e criação do primeiro agente com o Admin.
 
 Para começar manualmente, na pasta do projeto: `sudo ./install.sh --usuario <seu-usuario>`.
-O instalador pede a senha e mostra o endereço de acesso ao terminar.
+O instalador não pede senha. Ao terminar, mostra o endereço do painel e um link de primeiro acesso
+(uso único, vale 30 minutos), onde você cadastra a senha no navegador. Um link novo sai com
+`sudo dgclaw primeiro-acesso`.
