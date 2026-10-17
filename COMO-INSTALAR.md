@@ -4,9 +4,10 @@
 
 Em uma VPS Ubuntu 22.04 ou 24.04, com acesso root, pelo menos 2 GB de RAM e 15 GB livres,
 prepare Claude Code ou Codex e entre na sua assinatura. O Admin reutiliza esse login no root; a assinatura
-é necessária para o Admin conversar. Use uma máquina de teste para o primeiro ensaio.
+é necessária para o Admin conversar.
 
-Com acesso ao repositório oficial, execute estes três comandos no terminal da VPS:
+O repositório é público. Execute estes três comandos no terminal da própria VPS onde o DG Claw vai
+rodar:
 
 ```sh
 git clone https://github.com/DGatoM/DG-Claw
@@ -17,7 +18,6 @@ sudo ./install.sh --usuario admin
 Escolha a senha do painel quando o instalador pedir, com pelo menos 12 caracteres. Espere o final.
 Ele mostra o **link do painel**, **usuário**, **senha** e a frase **“Daqui pra frente é pelo painel”**.
 Guarde o acesso. A senha serve para entrar no DG Claw, não é a senha da sua conta Claude.
-Se o repositório ainda estiver privado, a conta do GitHub precisa ter acesso ao clone.
 
 Abra o link no navegador. Entre e você estará no card **Admin**:
 

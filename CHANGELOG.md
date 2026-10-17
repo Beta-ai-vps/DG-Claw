@@ -5,7 +5,7 @@ Todas as mudanças importantes do DG Claw ficam neste arquivo.
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o projeto adota o
 [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
-## [1.0.0] - A PUBLICAR
+## [1.0.0] - 2026-10-17
 
 A v1 troca o plugin do Claude Code por uma plataforma completa: um instalador, um painel web com
 chat e agentes que rodam isolados em containers.
