@@ -8,7 +8,15 @@
 .prov-conferido.atencao{color:var(--espera);font-weight:600}
 .prov-aviso{margin-top:10px;border-left:3px solid var(--espera);background:var(--fundo2);border-radius:8px;
   padding:10px 12px;font-size:14px;overflow-wrap:anywhere}
-.prov-aviso[hidden],.prov-login[hidden],.prov-j-erro[hidden]{display:none}
+.prov-aviso[hidden],.prov-sucesso[hidden],.prov-login[hidden],.prov-j-erro[hidden]{display:none}
+.prov-aviso-curto{font-weight:600}
+.prov-entenda{margin-top:6px;font-size:13px}
+.prov-entenda summary{cursor:pointer;color:var(--fraco);min-height:32px;display:flex;align-items:center}
+.prov-entenda p{margin:4px 0 0}
+.prov-sucesso{margin-top:10px;padding:10px 12px;border-radius:8px;font-size:14px;font-weight:600;
+  color:var(--texto);background:color-mix(in srgb,var(--ok) 16%,var(--painel));border:1px solid var(--ok)}
+#panel-status.prov-entrar-pendente #status-faixa{display:none}
+#prov-entrar{min-height:44px}
 .prov-detalhe{color:var(--fraco)}
 .prov-acoes{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
 
@@ -64,4 +72,6 @@
   .prov-janela{width:100%;height:100%;max-height:none;border-radius:0;border:0}
   .prov-rotulo{font-size:19px}
   .prov-codigo-grande{font-size:28px}
+  #prov-entrar{flex:1 1 100%;order:-1}
+  .prov-cartao .ajuda-secao{display:none}
 }

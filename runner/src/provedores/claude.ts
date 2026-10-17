@@ -80,6 +80,36 @@ export function confiarNaPasta(cwd: string, env: Record<string, string>, area: s
   }
 }
 
+/** Pula a tela de primeira execução (boas-vindas, tema, onboarding do projeto).
+ *  Sem isto o CLI de um agente novo fica esperando um Enter que ninguém vê, e o
+ *  primeiro "oi" nunca é respondido. Só grava o que falta: não troca tema nem
+ *  contador que já existam, e não reescreve o arquivo se nada mudou. */
+export function pularPrimeiraExecucao(cwd: string, env: Record<string, string>, area: string): void {
+  const arquivo = arquivoClaudeJson(env);
+  try {
+    const atual = lerClaudeJson(arquivo);
+    let mudou = false;
+    if (atual.hasCompletedOnboarding !== true) { atual.hasCompletedOnboarding = true; mudou = true; }
+    if (atual.theme === undefined || atual.theme === null || atual.theme === "") { atual.theme = "dark"; mudou = true; }
+    const projetos = ((atual as Record<string, Record<string, Record<string, unknown>>>).projects ??= {});
+    const proj = (projetos[cwd] ??= {});
+    if (proj.hasCompletedProjectOnboarding !== true) { proj.hasCompletedProjectOnboarding = true; mudou = true; }
+    if (typeof proj.projectOnboardingSeenCount !== "number" || proj.projectOnboardingSeenCount < 1) {
+      proj.projectOnboardingSeenCount = 1;
+      mudou = true;
+    }
+    if (!mudou) return;
+    gravarJsonAtomico(arquivo, atual);
+    log.info(area, `primeira execução do Claude pulada para ${cwd} em ${arquivo}`);
+  } catch (err) {
+    log.aviso(
+      area,
+      `não consegui pular a tela de primeira execução em ${arquivo} (${err instanceof Error ? err.message : err}); ` +
+        `o CLI pode abrir as boas-vindas e a primeira mensagem enviada não vai ser respondida`,
+    );
+  }
+}
+
 /**
  * Modo API: grava no `.claude.json` em uso que a chave do ambiente já foi aprovada.
  *
@@ -179,6 +209,7 @@ export const motorClaude: Motor = {
 
   async preparar(ctx) {
     confiarNaPasta(ctx.cwd, ctx.env, ctx.a("spawn"));
+    pularPrimeiraExecucao(ctx.cwd, ctx.env, ctx.a("spawn"));
     if (ctx.escolha.auth === "api") {
       const chave = ctx.env[ctx.variavelDoModo ?? "ANTHROPIC_API_KEY"];
       if (chave) {
