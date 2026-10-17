@@ -25,6 +25,10 @@ trabalho continuam separados em containers.
    à badge em uma transição curta, sem tremor, giro ou deslocamento. A conversa abre com a
    apresentação que o agente produziu no teste e um tutorial apontando o menu à esquerda.
 
+Se a pessoa responder pela conversa em vez de usar o formulário, o Admin grava o pedido com
+`onboarding.js pedir` e segue o mesmo `criar` e `testar`, então a animação e a primeira mensagem
+aparecem nos dois caminhos.
+
 **Tutorial** fica junto do título. Cada seção tem `?`, com holofote, explicação do que é, como
 funciona e por que está ali. O visual funciona no celular e com teclado.
 

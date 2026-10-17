@@ -359,6 +359,9 @@
         (d.fase==='erro'||d.fase==='erro-envio'||comErro?'<button type="button" id="nasReparar" class="nas-principal">Pedir ajuda ao Admin</button>':'')+
         '<p class="nas-erro" role="alert" hidden></p></section>';
       pintaBarra(d);
+      // A chegada do agente abre o modal mesmo minimizado: quem criou pela conversa fechou a janela para
+      // escrever ao Admin, e sem isto a animação tocaria escondida, só com a pílula no canto.
+      if (pronto) minimizado = false;
       abreModal();
       ligarAjuda();
       const teste = host.querySelector('#nasTestar');

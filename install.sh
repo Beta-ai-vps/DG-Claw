@@ -839,7 +839,7 @@ primeiro_boot() {
         return 0
     fi
     if ! tem_jq; then return 0; fi
-    corpo="$(jq -n --arg t '<plataforma recado="primeiro-boot">A instalacao do servidor terminou e o dono vai abrir o chat em instantes. Este e um aviso da plataforma, nao uma mensagem escrita por ele. Cumprimente-o agora pelo chat c_admin, usando mcp__dgchat__reply, com esta mensagem: "Oi! Eu sou o Admin do seu DG Claw. Cuido da maquina e crio os seus agentes, cada um na sua propria caixa, separado dos outros. Vamos criar o primeiro? Como vai se chamar seu agente?" Depois espere a resposta dele e siga a skill criar-agente.</plataforma>' \
+    corpo="$(jq -n --arg t '<plataforma recado="primeiro-boot">A instalacao do servidor terminou e o dono vai abrir o chat em instantes. Este e um aviso da plataforma, nao uma mensagem escrita por ele. Cumprimente-o agora pelo chat c_admin, usando mcp__dgchat__reply, com esta mensagem: "Oi! Eu sou o Admin do seu DG Claw. Cuido da maquina e crio os seus agentes, cada um na sua propria caixa, separado dos outros. Vamos criar o primeiro? Toque em **Quero criar meu primeiro agente**, na janela aqui do chat. Se preferir, me diga aqui mesmo como ele vai se chamar." Depois espere a resposta dele e siga a skill criar-agente.</plataforma>' \
         '{text: $t, submit: true}')"
     # O token vai por arquivo de configuracao do curl (modo 600), nunca na linha de comando.
     cfg="$(mktemp)"

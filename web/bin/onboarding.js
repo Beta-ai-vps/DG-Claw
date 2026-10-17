@@ -5,11 +5,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { criarServidor } = require('../server');
-const { loja, RX_ID } = require('../lib/onboarding');
+const { loja, registrarPedido, RX_ID } = require('../lib/onboarding');
 
 async function executar(acao, id, op = {}) {
-  if (!['criar', 'testar', 'ver'].includes(acao) || !(RX_ID.test(id || '') || id === 'atual')) throw new Error('Uso: node web/bin/onboarding.js criar|testar|ver <id do pedido|atual>');
-  const web = op.web || criarServidor();
+  const uso = 'Uso: node web/bin/onboarding.js criar|testar|ver <id do pedido|atual>, ou pedir com o JSON {nome, papel, jeito, dono} no STDIN';
+  const web = op.web || (acao === 'pedir' || (['criar', 'testar', 'ver'].includes(acao) && (RX_ID.test(id || '') || id === 'atual')) ? criarServidor() : null);
+  if (!web) throw new Error(uso);
+  if (acao === 'pedir') return registrarPedido({ config: web.config, registro: web.registro, dados: op.dados });
+  if (!['criar', 'testar', 'ver'].includes(acao) || !(RX_ID.test(id || '') || id === 'atual')) throw new Error(uso);
   const db = loja(web.config.dataDir);
   if (id === 'atual') id = db.ultimo()?.id;
   let p = id ? db.ler(id) : null;
@@ -92,4 +95,13 @@ async function executar(acao, id, op = {}) {
   }
 }
 module.exports = { executar };
-if (require.main === module) executar(process.argv[2], process.argv[3]).then(p => console.log(JSON.stringify(p))).catch(e => { console.error(e.message); process.exitCode = 1; });
+// O texto da pessoa chega pelo STDIN, nunca por argv, para não passar por shell.
+function lerDados() {
+  let bruto = '';
+  try { bruto = fs.readFileSync(0, 'utf8'); } catch (e) { throw new Error(`Não consegui ler o STDIN (${e.code || e.message}). Envie o JSON {"nome": "...", "papel": "...", "jeito": "...", "dono": "..."} por heredoc.`); }
+  if (!bruto.trim()) throw new Error('Não chegou nada pelo STDIN. Envie o JSON {"nome": "...", "papel": "...", "jeito": "...", "dono": "..."} por heredoc.');
+  try { return JSON.parse(bruto); } catch (e) {
+    throw new Error(`O JSON recebido pelo STDIN é inválido (${e.message}). O formato é {"nome": "...", "papel": "...", "jeito": "...", "dono": "..."}, com aspas duplas e barras escapadas.`);
+  }
+}
+if (require.main === module) Promise.resolve().then(() => executar(process.argv[2], process.argv[3], process.argv[2] === 'pedir' ? { dados: lerDados() } : {})).then(p => console.log(JSON.stringify(p))).catch(e => { console.error(e.message); process.exitCode = 1; });

@@ -10,6 +10,11 @@ function campo(v, nome, max) {
   if (typeof v !== 'string' || !v.trim() || v.length > max || /[\x00-\x1f<>]/.test(v)) throw erro(`Preencha ${nome} com até ${max} caracteres, sem quebras de linha.`);
   return v.trim();
 }
+// Valida as escolhas da pessoa. Serve ao formulário (solicitar) e à conversa (registrarPedido).
+function escolhas(body, dono) {
+  const d = dono == null ? undefined : campo(dono, 'seu nome', 70);
+  return { dono: d, nome: campo(body.nome, 'o nome', 70), papel: campo(body.papel, 'a função', 700), jeito: campo(body.jeito, 'o tom', 180) };
+}
 function slugNome(nome) {
   let s = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 26).replace(/-$/, '');
   if (s.length < 2) s = 'agente-' + s;
@@ -247,8 +252,8 @@ function criarOnboarding({ config, registro, conversa, midia, log = () => {}, im
     if (anterior && anterior.fase !== 'erro-envio') return publico(anterior);
     const ultimo = db.ultimo();
     if (ultimo && ultimo.id !== body.id && !['pronto', 'erro-envio'].includes(ultimo.fase)) throw erro('Já existe uma criação em andamento. Continue com o Admin antes de criar outra.', 409);
-    const dono = body.dono == null ? usuario : campo(body.dono, 'seu nome', 70);
-    const nome = campo(body.nome, 'o nome', 70), papel = campo(body.papel, 'a função', 700), jeito = campo(body.jeito, 'o tom', 180);
+    const { dono: donoInformado, nome, papel, jeito } = escolhas(body, body.dono);
+    const dono = donoInformado === undefined ? usuario : donoInformado;
     const admin = registro.estado().agentes.find(a => a.tipo === 'admin');
     if (!admin) throw erro('O Admin não está cadastrado. Peça para conferir a instalação.', 503);
     let foto = null, fotoPath = null;
@@ -288,4 +293,23 @@ function criarOnboarding({ config, registro, conversa, midia, log = () => {}, im
     catch (e) { log('aviso', 'Não consegui ler a foto do onboarding (' + (e.code || e.name) + '). A conversa continua com o avatar do registro.'); return null; }
   } };
 }
-module.exports = { criarOnboarding, loja, slugNome, RX_ID, limpar };
+// Pedido vindo da CONVERSA: o dono respondeu ao Admin no chat em vez de usar o formulário.
+// Grava o mesmo arquivo que o formulário grava, para `criar atual` e `testar atual` funcionarem igual
+// e o painel mostrar a animação. Não escreve ao Admin: quem chama já é o Admin.
+function registrarPedido({ config, registro, dados }) {
+  if (!dados || typeof dados !== 'object' || Array.isArray(dados)) throw erro('Faltou o JSON com nome, papel, jeito e dono do agente.');
+  const db = loja(config.dataDir);
+  const ultimo = db.ultimo();
+  if (ultimo && !['pronto', 'erro-envio'].includes(ultimo.fase)) throw erro(`Já existe uma criação em andamento (pedido na fase "${ultimo.fase}"). Termine ou resolva essa antes de gravar outro pedido.`, 409);
+  const { dono, nome, papel, jeito } = escolhas(dados, dados.dono);
+  if (dono === undefined) throw erro('Preencha seu nome com até 70 caracteres, sem quebras de linha.');
+  const admin = registro.estado().agentes.find(a => a.tipo === 'admin');
+  if (!admin) throw erro('O Admin não está cadastrado. Peça para conferir a instalação.', 503);
+  const id = crypto.randomBytes(16).toString('hex');
+  let slug = slugNome(nome);
+  if (registro.obter(slug)) slug = slug.slice(0, 22) + '-' + id.slice(0, 6);
+  return db.gravar({ id, criado: new Date().toISOString(), nome, papel, jeito, dono, slug, foto: null, fotoPath: null,
+    provedor: admin.provedor === 'codex' ? 'codex' : 'claude', fase: 'solicitado', origem: 'conversa',
+    mensagem: 'O Admin recebeu suas escolhas pela conversa e vai preparar seu agente.' });
+}
+module.exports = { criarOnboarding, registrarPedido, loja, slugNome, RX_ID, limpar };
