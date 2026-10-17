@@ -26,6 +26,7 @@ const { criarVoz } = require('./lib/voz');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
 const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
+const { criarMesa } = require('./lib/mesa');
 
 const METODOS_QUE_ESCREVEM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const TIPOS_ESTATICOS = {
@@ -78,6 +79,7 @@ function criarServidor(opcoes) {
   const voz = opcoes.voz || criarVoz({ env: config.env, log });
   const cofreRotas = criarCofreRotas({ config, runner, cofre: cofreAgente, voz, log });
   const proxy = criarProxy({ config, registro, log, cofreRotas });
+  const mesa = criarMesa({ arquivo: path.join(config.dataDir, 'mesa', 'tarefas.json'), registro, runner, log, agora: opcoes.agora, tz: config.tz, avisarDono: null });
 
   let versaoJsCache = { ts: 0, valor: '0' };
   /** Versão da tela: mtime de conversa.js. A tela compara com a que carregou e se recarrega sozinha. */
@@ -253,6 +255,7 @@ function criarServidor(opcoes) {
   async function api(req, res, url, sessao) {
     const p = url.pathname;
     const m = req.method;
+    if (p.startsWith('/api/v1/tarefas') && await mesa.rota(req, res, url, sessao)) return undefined;
 
     if (p === '/api/v1/onboarding') {
       if (falhaDoRegistro(req, res, true)) return;
@@ -639,6 +642,15 @@ function criarServidor(opcoes) {
       if (!servirArquivo(req, res, path.join(config.publicDir, 'conversa.html'), 'no-store')) {
         log('erro', `A tela da conversa não está instalada: falta ${path.join(config.publicDir, 'conversa.html')}.`);
         H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela da conversa não foi encontrado no servidor. Reinstale o DG Claw Web.');
+      }
+      return undefined;
+    }
+
+    if ((p === '/mesa' || p === '/mesa/') && (m === 'GET' || m === 'HEAD')) {
+      if (!sessao) return semSessaoPagina(req, res, url);
+      if (!servirArquivo(req, res, path.join(config.publicDir, 'mesa.html'), 'no-store')) {
+        log('erro', `A tela da Mesa não está instalada: falta ${path.join(config.publicDir, 'mesa.html')}.`);
+        H.paginaErro(res, 500, 'Tela não instalada', 'O arquivo da tela da Mesa de tarefas não foi encontrado no servidor. Reinstale o DG Claw Web.');
       }
       return undefined;
     }

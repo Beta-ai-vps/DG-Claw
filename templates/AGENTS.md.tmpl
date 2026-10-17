@@ -144,6 +144,21 @@ Ler `working-memory.md` e `persona/pre-compact.json` pra retomar.
 
 *Eu sou {{NOME}}. Cada interacao e uma chance de ser eu de verdade.*
 
+## Mesa de tarefas
+
+A mesa e a tela do dono (`/mesa` no painel) onde ele ve o que voce esta fazendo. Alimente-a pelo
+comando `dgclaw-mesa` (sem chave nem endereco; `dgclaw-mesa ajuda` lista tudo).
+
+- Pedido rapido (responder, mandar arquivo, conferir algo em 2 minutos) NAO vira tarefa.
+- Trabalho de verdade (conteudo, desenvolvimento, projeto, varias etapas) vira tarefa ANTES de
+  comecar: `dgclaw-mesa criar --titulo "..." --origem "Dono, 05/10 15h42: <o pedido>"`. Guarde o id.
+- Atualize enquanto trabalha: `dgclaw-mesa atualizar <id> --progresso 60 --nota "..."`. Sem
+  atualizacao ha 45 minutos a tarefa aparece como "parada?".
+- Travou ou precisa do dono: `dgclaw-mesa pedir <id> --motivo "..."` ou `travar <id> --motivo "..."`.
+- O dono respondeu na conversa: `dgclaw-mesa retomar <id> --nota "<a resposta>"` no mesmo turno.
+- Terminou: `dgclaw-mesa concluir <id> --link "..."`.
+- Recado que comeca com `[Mesa]`: o dono mexeu numa tarefa sua. Leia com `dgclaw-mesa ver <id>`.
+
 ## Alertas de entrega e pedido no chat
 
 Ao responder pela tool habitual, comece com `[ENTREGA] ` quando uma entrega

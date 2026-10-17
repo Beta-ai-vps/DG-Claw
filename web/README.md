@@ -67,7 +67,7 @@ Sem chave de voz, `voz` e `microfone` saem `false` em `/api/v1/agents` (a tela e
 
 ## Rotas
 
-Páginas: `GET /login`, `POST /login` (campos `usuario`, `senha`, `next`), `GET|POST /sair`, `GET /` (leva ao primeiro agente), `GET /a/<slug>`. Sem sessão, a página redireciona para `/login?next=...`; a API responde 401 JSON.
+Páginas: `GET /login`, `POST /login` (campos `usuario`, `senha`, `next`), `GET|POST /sair`, `GET /` (leva ao primeiro agente), `GET /a/<slug>`, `GET /mesa` (Mesa de tarefas). Sem sessão, a página redireciona para `/login?next=...`; a API responde 401 JSON.
 
 O erro do login por formulário volta como 302 para `/login?erro=<código>&next=...`. Códigos: `credenciais`, `limite` (429 de tentativas), `origem` (Origin recusada), `campos` (faltou campo), `bloqueado` (login trancado, sem hash). Quem pede JSON (`Accept` ou `Content-Type` `application/json`) recebe o status e `{ok:false, erro}`.
 
@@ -90,6 +90,7 @@ API (todas com sessão; erros sempre `{ok:false, erro:"motivo em português"}`):
 | `POST /api/v1/tts` | `{agent_id, text}`; responde o áudio (`audio/mpeg`). `X-TTS-Cortado: 1` quando o texto foi cortado. |
 | `GET /api/v1/tts/cota` | Uso da cota de voz. |
 | `GET /api/v1/eu` | `{ok, usuario}`. |
+| `GET`/`POST`/`PATCH`/`DELETE /api/v1/tarefas[/:id]` | Mesa de tarefas dos agentes (criar, atualizar, concluir, cancelar). Contrato completo em `docs/MESA.md` (também em `GET /api/v1/tarefas/docs.md`). |
 | `ANY /p/<slug>/*` | Proxy do painel do agente. |
 
 **Mensagem da thread:** `{id, ep, hhmm, dia, origin, text, kind, media, fmt, editada, reacoes, cita, via, quem}`. `origin` é `dono`, `agente` ou `rotina`. `media` é `{id, kind, nome, bytes, disponivel, url, thumb, path}`.
