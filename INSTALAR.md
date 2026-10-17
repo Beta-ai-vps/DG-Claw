@@ -7,7 +7,7 @@ pelo painel.
 
 ## Antes de começar
 
-Uma VPS Ubuntu 22.04 ou 24.04, com acesso root, 2 GB de memória e 15 GB livres. As portas 80 e 443
+Uma VPS Ubuntu (testado no 22.04 e no 24.04 LTS; em outra versão, como a 26.04, o instalador avisa e tenta mesmo assim), com acesso root, 2 GB de memória e 15 GB livres. As portas 80 e 443
 precisam estar disponíveis. Claude Code ou Codex deve estar instalado e conectado à sua assinatura
 no root da VPS. `--provedor claude` ou `--provedor codex` define o motor do Admin. Sem opção,
 o instalador mantém a escolha anterior; em uma máquina nova, procura Claude primeiro e depois

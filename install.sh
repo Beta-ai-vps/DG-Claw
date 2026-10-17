@@ -279,10 +279,14 @@ checar_maquina() {
     local so mem_kb disco_kb
     [ -r /etc/os-release ] || falha "nao achei /etc/os-release, entao nao sei qual sistema e este." "o DG Claw v1 instala em Ubuntu 22.04 ou 24.04."
     so="$(. /etc/os-release && printf '%s %s' "${ID:-?}" "${VERSION_ID:-?}")"
+    # 22.04 e 24.04 sao as testadas. Outra versao do Ubuntu (26.04, por exemplo) costuma
+    # funcionar, entao avisamos e seguimos, em vez de barrar o aluno que ja criou a VPS.
+    # Sistema que nao e Ubuntu continua recusado: o instalador usa apt, ufw e os pacotes dele.
     case "$so" in
         "ubuntu 22.04"|"ubuntu 24.04") ok "sistema: $so" ;;
-        *) falha "este sistema e '$so' e o DG Claw v1 so instala em Ubuntu 22.04 ou 24.04." \
-               "crie um servidor com Ubuntu 24.04 e rode o instalador nele." ;;
+        "ubuntu "*) aviso "esta versao do Ubuntu ($so) ainda nao foi testada; vou tentar instalar. Se der erro, reinstale a VPS com Ubuntu 24.04 LTS e rode o instalador de novo." ;;
+        *) falha "este sistema e '$so' e o DG Claw v1 so instala em Ubuntu (testado no 22.04 e no 24.04)." \
+               "crie um servidor com Ubuntu 24.04 LTS e rode o instalador nele." ;;
     esac
     [ "$(id -u)" -eq 0 ] || falha "o instalador precisa rodar como root (voce e o usuario $(id -un))." \
         "rode com sudo: sudo ./install.sh --usuario $USUARIO"
