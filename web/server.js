@@ -26,6 +26,8 @@ const { criarVoz } = require('./lib/voz');
 const { criarOnboarding } = require('./lib/onboarding');
 const { criarLogin } = require('./lib/login');
 const { criarPrimeiroAcesso } = require('./lib/primeiro-acesso');
+const { criarCaixaAgente } = require('./lib/caixa-agente');
+const { criarPush } = require('./lib/push');
 
 const METODOS_QUE_ESCREVEM = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const TIPOS_ESTATICOS = {
@@ -78,6 +80,9 @@ function criarServidor(opcoes) {
   const voz = opcoes.voz || criarVoz({ env: config.env, log });
   const cofreRotas = criarCofreRotas({ config, runner, cofre: cofreAgente, voz, log });
   const proxy = criarProxy({ config, registro, log, cofreRotas });
+  const caixa = criarCaixaAgente({ config, registro, log, porta: () => servidor.address().port, agora: opcoes.agora });
+  const push = criarPush({ dataDir: config.dataDir, log, agora: opcoes.agora, enviarHttp: opcoes.enviarPush });
+  try { push.garantirChaves(); } catch (e) { log('erro', e.message); }
 
   let versaoJsCache = { ts: 0, valor: '0' };
   /** Versão da tela: mtime de conversa.js. A tela compara com a que carregou e se recarrega sozinha. */
@@ -354,6 +359,18 @@ function criarServidor(opcoes) {
       return H.enviaJson(res, r.status, r.corpo);
     }
 
+    if (p === '/api/v1/caixa/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, '..', 'docs', 'CAIXA-DO-AGENTE.md'), 'utf8'));
+    }
+    if (p === '/api/v1/push/docs.md' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'AVISOS-NO-APARELHO.md'), 'utf8'));
+    }
+    if (p === '/api/v1/push' || p.startsWith('/api/v1/push/')) {
+      if (await push.rotas(req, res, url, sessao)) return undefined;
+    }
+
     if (p === '/api/v1/trilha/docs.md' && m === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(fs.readFileSync(path.join(__dirname, 'docs', 'TRILHA-E-PERMISSAO.md'), 'utf8'));
@@ -571,8 +588,14 @@ function criarServidor(opcoes) {
       res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     }
 
-    // CSRF: toda escrita exige Origin igual à do próprio Web.
-    if (ehMutacao(req) && !origemOk(req)) {
+    // Pedido interno da caixa de um agente: só rotas /api/ liberadas com caixa.permitir().
+    const slugCaixa = caixa.ehPedidoDaCaixa(req);
+    if (slugCaixa && !(p.startsWith('/api/') && caixa.rotaPermitida(p))) {
+      return H.erroJson(res, 403, `A rota ${p.slice(0, 120)} não está liberada para agentes. Só as rotas que a frente liberou com caixa.permitir() respondem pela caixa.`);
+    }
+
+    // CSRF: toda escrita exige Origin igual à do próprio Web (a caixa não vem de navegador).
+    if (ehMutacao(req) && !slugCaixa && !origemOk(req)) {
       const visto = req.headers.origin ? String(req.headers.origin).slice(0, 80) : '(sem Origin)';
       log('aviso', `Pedido ${m} ${p} recusado: Origin ${visto} não é a deste Web (${H.origemPropria(req, config.proxiesConfiaveis)}).`);
       const motivo = `Pedido recusado: a origem ${visto} não é a deste site. Abra o DG Claw pelo endereço normal e tente de novo.`;
@@ -604,7 +627,7 @@ function criarServidor(opcoes) {
       return res.end();
     }
 
-    const sessao = auth.sessaoDoPedido(req);
+    const sessao = slugCaixa ? { usuario: 'agente:' + slugCaixa, via: 'caixa', agente: slugCaixa } : auth.sessaoDoPedido(req);
 
     if (p.startsWith('/api/')) {
       if (!sessao) return H.erroJson(res, 401, 'Você precisa entrar para usar a API. Faça login em /login.');
@@ -685,17 +708,18 @@ function criarServidor(opcoes) {
   });
 
   return {
-    servidor, config, registro, auth, midia, conversa, log,
+    servidor, config, registro, auth, midia, conversa, log, caixa, push,
     ouvir(porta, host) {
       return new Promise((resolve, reject) => {
         servidor.once('error', reject);
         servidor.listen(porta == null ? config.porta : porta, host || config.host, () => {
           servidor.off('error', reject);
+          caixa.iniciar();
           resolve(servidor.address());
         });
       });
     },
-    fechar() { return new Promise((resolve) => { proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
+    fechar() { return new Promise((resolve) => { caixa.parar(); proxy.fecharTudo(); servidor.closeAllConnections && servidor.closeAllConnections(); servidor.close(() => resolve()); }); },
   };
 }
 

@@ -190,9 +190,10 @@ COPY --from=runner-build /build/runner/package.json /opt/dgclaw/app/runner/packa
 # CLIs que rodam DENTRO do container (o bin/dgclaw do host não entra no PATH). O link nasce
 # mesmo que o arquivo ainda não exista; fica pendente até o plugin trazer o arquivo.
 # dgclaw-card: o agente abre um card em outro provedor (a skill cai no caminho completo se
-# o link faltar).
+# o link faltar). dgclaw-api: o agente chama a API do Web pela caixa de arquivos (docs/CAIXA-DO-AGENTE.md).
 RUN ln -s /opt/dgclaw/app/bin/dgclaw-agente /usr/local/bin/dgclaw-agente \
- && ln -s /opt/dgclaw/app/bin/dgclaw-card /usr/local/bin/dgclaw-card
+ && ln -s /opt/dgclaw/app/bin/dgclaw-card /usr/local/bin/dgclaw-card \
+ && ln -s /opt/dgclaw/app/bin/dgclaw-api /usr/local/bin/dgclaw-api
 
 # O painel é JavaScript puro (express e afins), sem parte nativa: instala aqui, sem compilador.
 RUN cd /opt/dgclaw/app/panel && npm install --omit=dev --no-audit --no-fund && npm cache clean --force
